@@ -1,0 +1,11 @@
+syntax = "proto3";
+package profile;
+
+// [RUST-SIGNAL]
+message ProfileSignal {
+  string name = 1;
+  string handle = 2;
+  string bio = 3;
+  string location = 4;
+  string profile_image = 5;
+}

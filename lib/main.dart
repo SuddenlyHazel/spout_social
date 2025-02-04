@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:rinf/rinf.dart';
 import './messages/all.dart';
 
@@ -13,6 +14,14 @@ class MainApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          dynamicSchemeVariant: DynamicSchemeVariant.vibrant,
+          seedColor: Colors.deepPurpleAccent,
+          brightness: MediaQuery.platformBrightnessOf(context),
+        ),
+        useMaterial3: true,
+      ),
       debugShowCheckedModeBanner: false,
       initialRoute: "/",
       routes: <String, WidgetBuilder>{
@@ -21,7 +30,10 @@ class MainApp extends StatelessWidget {
         },
         "/create/post": (BuildContext context) {
           return const CreatePostPage();
-        }
+        },
+        "/profile": (BuildContext context) {
+          return const ProfilePage();
+        },
       },
     );
   }
@@ -154,6 +166,201 @@ class Post extends StatelessWidget {
   }
 }
 
+class ProfilePage extends StatefulWidget {
+  const ProfilePage({super.key});
+
+  @override
+  _ProfilePageState createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  String profileImageUrl =
+      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=3540&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D";
+  String username = "Username";
+  String handle = "@handle";
+  int postCount = 42;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(),
+      body: Center(
+        child: Padding(
+          padding: EdgeInsets.all(10.0),
+          child: Column(
+            children: [
+              CircleAvatar(
+                radius: 50,
+                backgroundImage: NetworkImage(profileImageUrl),
+              ),
+              SizedBox(height: 20),
+              Text(
+                username,
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              Text(
+                handle,
+                style: TextStyle(fontSize: 18, color: Colors.grey),
+              ),
+              SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Column(
+                    children: [
+                      Text(
+                        "Posts",
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        postCount.toString(),
+                        style: TextStyle(fontSize: 18),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              Padding(
+                padding: EdgeInsets.all(10.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    OutlinedButton(
+                      onPressed: () {
+// Update the navigation in ProfilePage to pass the values
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => EditProfilePage(
+                              profileImageUrl: profileImageUrl,
+                              username: username,
+                              handle: handle,
+                              bio:
+                                  "Your bio here", // Add bio field in ProfilePage if needed
+                              location:
+                                  "Your location here", // Add location field in ProfilePage if needed
+                            ),
+                          ),
+                        );
+                      },
+                      child: Text("Edit Profile"),
+                    )
+                  ],
+                ),
+              )
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class EditProfilePage extends StatefulWidget {
+  final String profileImageUrl;
+  final String username;
+  final String handle;
+  final String bio;
+  final String location;
+
+  const EditProfilePage({
+    super.key,
+    required this.profileImageUrl,
+    required this.username,
+    required this.handle,
+    required this.bio,
+    required this.location,
+  });
+
+  @override
+  _EditProfilePageState createState() => _EditProfilePageState();
+}
+
+class _EditProfilePageState extends State<EditProfilePage> {
+  late String profileImageUrl;
+  final ImagePicker _picker = ImagePicker();
+
+  @override
+  void initState() {
+    super.initState();
+    profileImageUrl = widget.profileImageUrl;
+  }
+
+  Future<void> _pickImage() async {
+    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+    if (image != null) {
+      setState(() {
+        profileImageUrl = image.path;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(),
+      body: Center(
+        child: Padding(
+          padding: EdgeInsets.all(10.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              GestureDetector(
+                onTap: _pickImage,
+                child: CircleAvatar(
+                  radius: 50,
+                  backgroundImage: NetworkImage(profileImageUrl),
+                ),
+              ),
+              SizedBox(height: 20),
+              TextField(
+                decoration: InputDecoration(
+                  labelText: "Name",
+                  border: OutlineInputBorder(),
+                ),
+                controller: TextEditingController(text: widget.username),
+              ),
+              SizedBox(height: 20),
+              TextField(
+                decoration: InputDecoration(
+                  labelText: "Handle",
+                  border: OutlineInputBorder(),
+                ),
+                controller: TextEditingController(text: widget.handle),
+              ),
+              SizedBox(height: 20),
+              TextField(
+                decoration: InputDecoration(
+                  labelText: "Bio",
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+                controller: TextEditingController(text: widget.bio),
+              ),
+              SizedBox(height: 20),
+              TextField(
+                decoration: InputDecoration(
+                  labelText: "Location",
+                  border: OutlineInputBorder(),
+                ),
+                controller: TextEditingController(text: widget.location),
+              ),
+              SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () {
+                  // Handle save action
+                },
+                child: Text("Save"),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
@@ -199,7 +406,9 @@ class HomePage extends StatelessWidget {
             ),
             IconButton(
               icon: Icon(Icons.face),
-              onPressed: () {},
+              onPressed: () {
+                Navigator.pushNamed(context, "/profile");
+              },
             ),
           ],
         ),

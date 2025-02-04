@@ -19,6 +19,12 @@ iroh = "0.31.0"
 iroh-base = "0.31.0"
 anyhow = "1.0.95"
 iroh-blobs = { version = "0.31.0", features = ["rpc"] }
+iroh-gossip = { version = "0.31.0", features = ["rpc"] }
+iroh-docs = { version = "0.31.0", features = ["rpc"] }
+futures = "0.3.31"
+serde = { version = "1.0.217", features = ["derive"] }
+serde_json = "1.0.138"
+quic-rpc = { version = "0.17" }
 
 # Uncomment below to target the web.
 # tokio_with_wasm = { version = "0.7.2", features = ["rt", "macros"] }

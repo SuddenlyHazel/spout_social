@@ -1,14 +1,23 @@
 //! This `hub` crate is the
 //! entry point of the Rust logic.
 
+use iroh_docs::rpc::client::docs::Client as _DocsClient;
+use iroh_blobs::rpc::client::blobs::Client as _BlobsClient;
+
+use quic_rpc::transport::flume::FlumeConnector;
+
 mod iroh_functions;
 mod messages;
 mod sample_functions;
 mod tutorial_function;
+mod models;
 // Uncomment below to target the web.
 // use tokio_with_wasm::alias as tokio;
 
 rinf::write_interface!();
+
+pub type DocsClient = _DocsClient<FlumeConnector<iroh_docs::rpc::proto::Response, iroh_docs::rpc::proto::Request>>;
+pub type BlobsClient = _BlobsClient<FlumeConnector<iroh_blobs::rpc::proto::Response, iroh_blobs::rpc::proto::Request>>;
 
 // You can go with any async library, not just `tokio`.
 #[tokio::main(flavor = "current_thread")]
