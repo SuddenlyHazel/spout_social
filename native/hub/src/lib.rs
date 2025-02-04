@@ -1,6 +1,7 @@
 //! This `hub` crate is the
 //! entry point of the Rust logic.
 
+mod iroh_functions;
 mod messages;
 mod sample_functions;
 mod tutorial_function;
@@ -19,6 +20,7 @@ async fn main() {
     tokio::spawn(sample_functions::communicate());
     tokio::spawn(tutorial_function::calculate_precious_data());
     tokio::spawn(tutorial_function::stream_amazing_number());
+    tokio::spawn(iroh_functions::launch_iroh());
 
     // Keep the main function running until Dart shutdown.
     rinf::dart_shutdown().await;

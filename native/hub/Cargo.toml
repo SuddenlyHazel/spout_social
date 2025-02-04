@@ -15,6 +15,10 @@ crate-type = ["lib", "cdylib", "staticlib"]
 rinf = "7.1.0"
 prost = "0.13.0"
 tokio = { version = "1", features = ["rt", "macros", "time"] }
+iroh = "0.31.0"
+iroh-base = "0.31.0"
+anyhow = "1.0.95"
+iroh-blobs = { version = "0.31.0", features = ["rpc"] }
 
 # Uncomment below to target the web.
 # tokio_with_wasm = { version = "0.7.2", features = ["rt", "macros"] }

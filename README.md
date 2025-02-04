@@ -1,4 +1,4 @@
-# sprout_one
+# [Spout Social](https://github.com/SuddenlyHazel/spout_social)
 
 A new Flutter project.
 
