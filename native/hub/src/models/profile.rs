@@ -1,12 +1,13 @@
 use anyhow::anyhow;
 use base64::Engine;
+use iroh_blobs::Hash;
 use iroh_docs::rpc::client::docs::Doc;
 use iroh_docs::{store::Query, AuthorId, DocTicket};
 
 use quic_rpc::transport::flume::FlumeConnector;
 use serde::{Deserialize, Serialize};
 
-use crate::{BlobsClient, DocsClient};
+use crate::{BlobsClient, DocsClient, SpoutDoc};
 
 const PERSON_PLACEHOLDER: &[u8] = include_bytes!("../../../../assets/person.png");
 
@@ -18,6 +19,8 @@ pub struct Profile {
     pub location: String,
     pub profile_image: String,
 }
+
+const PROFILE_KEY: &'static str = "profile";
 
 pub struct Controller {}
 
@@ -35,15 +38,27 @@ impl Controller {
         Err(anyhow!("Failed to load profile document"))
     }
 
+    pub async fn write_profile(
+        doc:&SpoutDoc,
+        author_id: AuthorId,
+        profile: &Profile,
+    ) -> anyhow::Result<Hash> {
+        Ok(doc
+            .set_bytes(author_id, PROFILE_KEY, serde_json::to_vec(profile)?)
+            .await?)
+    }
+
     pub async fn create_profile(
-        doc: Doc<FlumeConnector<iroh_docs::rpc::proto::Response, iroh_docs::rpc::proto::Request>>,
+        docs_client : &DocsClient,
         author: AuthorId,
         name: String,
         handle: String,
         bio: String,
         location: String,
-    ) -> anyhow::Result<Profile> {
+    ) -> anyhow::Result<(Profile, SpoutDoc)> {
         let profile_image = base64::engine::general_purpose::URL_SAFE.encode(PERSON_PLACEHOLDER);
+
+        let new_doc = docs_client.create().await?;
 
         let profile = Profile {
             name,
@@ -52,8 +67,8 @@ impl Controller {
             location,
             profile_image,
         };
-        doc.set_bytes(author, "profile", serde_json::to_vec(&profile)?)
+        new_doc.set_bytes(author, PROFILE_KEY, serde_json::to_vec(&profile)?)
             .await?;
-        Ok(profile)
+        Ok((profile, new_doc))
     }
 }

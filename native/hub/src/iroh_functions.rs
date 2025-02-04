@@ -1,29 +1,40 @@
 use std::sync::Arc;
 
+use directories::ProjectDirs;
 use futures::{lock, StreamExt};
 use iroh::{protocol::Router, Endpoint};
 use iroh_blobs::{
-    net_protocol::Blobs, store::mem::Store, util::local_pool::LocalPool, ALPN as BLOBS_ALPN,
+    net_protocol::Blobs, store::fs::Store, util::local_pool::LocalPool, ALPN as BLOBS_ALPN,
 };
 use iroh_docs::{protocol::Docs, rpc::client::docs::ShareMode, AuthorId, ALPN as DOCS_ALPN};
 use iroh_gossip::{net::Gossip, ALPN as GOSSIP_ALPN};
-use std::fs::File;
-use std::io::Read;
 use tokio::sync::{mpsc::Sender, Mutex};
 
 use crate::{
+    app_fs,
     messages::{profile, ProfileSignal, RequestUserProfile, UpdateUserProfile},
-    models::{self, profile::Profile},
+    models::{
+        self,
+        profile::{Controller, Profile},
+    },
+    SpoutDoc,
 };
 
 pub async fn launch_iroh() -> anyhow::Result<()> {
     // Create an endpoint, it allows creating and accepting
     // connections in the iroh p2p world
+
+    let data_dir = app_fs::app_data_path().await?;
+
+    println!("{:?}", data_dir.canonicalize());
+
     let endpoint = Endpoint::builder().discovery_n0().bind().await?;
 
     // We initialize the Blobs protocol in-memory
     let local_pool = LocalPool::default();
-    let blobs = Blobs::memory().build(&local_pool, &endpoint);
+    let blobs = Blobs::persistent(data_dir.clone())
+        .await?
+        .build(&local_pool, &endpoint);
 
     println!("addr is.. {:?}", endpoint.node_addr().await);
 
@@ -33,9 +44,17 @@ pub async fn launch_iroh() -> anyhow::Result<()> {
     let gossip = Gossip::builder().spawn(builder.endpoint().clone()).await?;
     println!("build the gossip protocol");
     // build the docs protocol
-    let docs = Docs::memory().spawn(&blobs, &gossip).await?;
+    let docs = Docs::persistent(data_dir.clone())
+        .spawn(&blobs, &gossip)
+        .await?;
 
-    let author = docs.client().authors().create().await?;
+    let author = match docs.client().authors().default().await {
+        Ok(author) => author,
+        Err(_) => docs.client().authors().create().await?,
+    };
+
+    println!("AuthorId {:?}", author);
+
     println!("build the docs protocol");
 
     // Now we build a router that accepts blobs connections & routes them
@@ -59,94 +78,84 @@ pub async fn profile_signals(
     blobs: Blobs<Store>,
     author: AuthorId,
 ) -> anyhow::Result<()> {
-    let doc_list = docs.client().list().await?;
-    let mut doc_stream = doc_list;
-    println!("Attempting to query docs");
-    let mut all_docs = vec![];
+    println!("No documents found.. safe to assume this is a new account");
 
-    while let Some(doc) = doc_stream.next().await {
-        match doc {
-            Ok(doc) => {
-                println!("Document: {:?}", doc);
-                all_docs.push(doc);
-            }
-            Err(e) => {
-                eprintln!("Error: {:?}", e);
-            }
-        }
-    }
+    let (profile, profile_doc) = models::profile::Controller::create_profile(
+        docs.client(),
+        author.clone(),
+        "New User".into(),
+        "Fake Handle".into(),
+        "Strange new user".into(),
+        "devnull".into(),
+    )
+    .await?;
 
-    if all_docs.is_empty() {
-        println!("No documents found.. safe to assume this is a new account");
-        let new_doc = docs.client().create().await?;
-        let doc_ticket = new_doc.share(ShareMode::Write, Default::default()).await?;
-
-        let profile = models::profile::Controller::create_profile(
-            new_doc,
-            author,
-            "New User".into(),
-            "Fake Handle".into(),
-            "Strange new user".into(),
-            "devnull".into(),
-        )
+    let doc_ticket = profile_doc
+        .share(ShareMode::Write, Default::default())
         .await?;
 
-        let mut profile = models::profile::Controller::load_profile(
-            docs.client(),
-            blobs.client(),
-            doc_ticket.clone(),
-        )
-        .await?;
+    let profile = models::profile::Controller::load_profile(
+        docs.client(),
+        blobs.client(),
+        doc_ticket.clone(),
+    )
+    .await?;
 
-        let profile = Arc::new(Mutex::new(profile));
+    let profile = Arc::new(Mutex::new(profile));
 
-        let (tx, mut rx) = tokio::sync::mpsc::channel(10);
-        let handle = tokio::task::spawn(profile_update_actor(profile.clone(), tx));
+    let (tx, mut rx) = tokio::sync::mpsc::channel(10);
+    let _ = tokio::task::spawn(profile_update_actor(
+        profile.clone(),
+        tx,
+        profile_doc.clone(),
+        author.clone(),
+    ));
 
-        println!("Progressed here");
-
-        let _profile = profile.clone();
-        // Push updates to the UI on profile edit..
-        tokio::spawn(async move {
-            while let Some(_) = rx.recv().await {
-                let locked = _profile.lock().await;
-                ProfileSignal {
-                    name: locked.name.clone(),
-                    handle: locked.handle.clone(),
-                    bio: locked.bio.clone(),
-                    location: locked.location.clone(),
-                    profile_image: locked.profile_image.clone(),
-                }
-                .send_signal_to_dart();
-                drop(locked);
+    let _profile = profile.clone();
+    // Push updates to the UI on profile edit..
+    tokio::spawn(async move {
+        while let Some(_) = rx.recv().await {
+            let locked = _profile.lock().await;
+            ProfileSignal {
+                name: locked.name.clone(),
+                handle: locked.handle.clone(),
+                bio: locked.bio.clone(),
+                location: locked.location.clone(),
+                profile_image: locked.profile_image.clone(),
             }
-        });
-
-        loop {
-            let listener = RequestUserProfile::get_dart_signal_receiver();
-
-            while let Some(_) = listener.recv().await {
-                println!("Received profile request");
-                let locked = profile.lock().await;
-
-                ProfileSignal {
-                    name: locked.name.clone(),
-                    handle: locked.handle.clone(),
-                    bio: locked.bio.clone(),
-                    location: locked.location.clone(),
-                    profile_image: locked.profile_image.clone(),
-                }
-                .send_signal_to_dart();
-                drop(locked);
-                println!("Send profile info");
-            }
-            println!("Profile req listener returned")
+            .send_signal_to_dart();
+            drop(locked);
         }
+    });
+
+    let listener = RequestUserProfile::get_dart_signal_receiver();
+
+    while let Some(_) = listener.recv().await {
+        println!("Received profile request");
+        let locked = profile.lock().await;
+
+        ProfileSignal {
+            name: locked.name.clone(),
+            handle: locked.handle.clone(),
+            bio: locked.bio.clone(),
+            location: locked.location.clone(),
+            profile_image: locked.profile_image.clone(),
+        }
+        .send_signal_to_dart();
+        drop(locked);
+        println!("Send profile info");
     }
+    println!("Profile req listener returned");
+
     Ok(())
 }
 
-async fn profile_update_actor(profile: Arc<Mutex<Profile>>, updated: Sender<()>) {
+async fn profile_update_actor(
+    profile: Arc<Mutex<Profile>>,
+    updated: Sender<()>,
+    doc: SpoutDoc,
+    author_id: AuthorId,
+) {
     let listener = UpdateUserProfile::get_dart_signal_receiver();
 
     while let Some(update_request) = listener.recv().await {
@@ -157,6 +166,10 @@ async fn profile_update_actor(profile: Arc<Mutex<Profile>>, updated: Sender<()>)
         locked.handle = req.handle;
         locked.location = req.location;
         locked.profile_image = req.profile_image;
+
+        Controller::write_profile(&doc, author_id, &locked)
+            .await
+            .expect("failed to write document");
         drop(locked);
         println!("Wrote profile updates :3");
         updated.send(()).await;
