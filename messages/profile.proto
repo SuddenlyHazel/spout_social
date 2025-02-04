@@ -1,6 +1,19 @@
 syntax = "proto3";
 package profile;
 
+// [DART-SIGNAL]
+message RequestUserProfile {
+}
+
+// [DART-SIGNAL]
+message UpdateUserProfile {
+  string name = 1;
+  string handle = 2;
+  string bio = 3;
+  string location = 4;
+  string profile_image = 5;
+}
+
 // [RUST-SIGNAL]
 message ProfileSignal {
   string name = 1;
@@ -9,3 +22,5 @@ message ProfileSignal {
   string location = 4;
   string profile_image = 5;
 }
+
+

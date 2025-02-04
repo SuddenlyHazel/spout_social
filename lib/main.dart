@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:rinf/rinf.dart';
@@ -181,79 +184,106 @@ class _ProfilePageState extends State<ProfilePage> {
   int postCount = 42;
 
   @override
+  void initState() {
+    super.initState();
+    RequestUserProfile().sendSignalToRust();
+  }
+
+  ImageProvider _getImageProvider(profileImageUrl) {
+    if (profileImageUrl.startsWith('http')) {
+      return NetworkImage(profileImageUrl);
+    } else if (profileImageUrl.startsWith('/')) {
+      return FileImage(File(profileImageUrl));
+    } else {
+      final bytes = base64Decode(profileImageUrl);
+      return MemoryImage(bytes);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(),
-      body: Center(
-        child: Padding(
-          padding: EdgeInsets.all(10.0),
-          child: Column(
-            children: [
-              CircleAvatar(
-                radius: 50,
-                backgroundImage: NetworkImage(profileImageUrl),
-              ),
-              SizedBox(height: 20),
-              Text(
-                username,
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-              Text(
-                handle,
-                style: TextStyle(fontSize: 18, color: Colors.grey),
-              ),
-              SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Column(
-                    children: [
-                      Text(
-                        "Posts",
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      Text(
-                        postCount.toString(),
-                        style: TextStyle(fontSize: 18),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              Padding(
+    return StreamBuilder(
+        stream: ProfileSignal.rustSignalStream,
+        builder: (context, snapshot) {
+          final rustSignal = snapshot.data;
+          if (rustSignal == null) {
+            return Text("Loading..");
+          }
+          ProfileSignal message = rustSignal.message;
+
+          return Scaffold(
+            appBar: AppBar(),
+            body: Center(
+              child: Padding(
                 padding: EdgeInsets.all(10.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                child: Column(
                   children: [
-                    OutlinedButton(
-                      onPressed: () {
-// Update the navigation in ProfilePage to pass the values
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => EditProfilePage(
-                              profileImageUrl: profileImageUrl,
-                              username: username,
-                              handle: handle,
-                              bio:
-                                  "Your bio here", // Add bio field in ProfilePage if needed
-                              location:
-                                  "Your location here", // Add location field in ProfilePage if needed
+                    CircleAvatar(
+                        radius: 50,
+                        backgroundImage:
+                            _getImageProvider(message.profileImage)),
+                    SizedBox(height: 20),
+                    Text(
+                      message.name,
+                      style:
+                          TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      message.handle,
+                      style: TextStyle(fontSize: 18, color: Colors.grey),
+                    ),
+                    SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Column(
+                          children: [
+                            Text(
+                              "Posts",
+                              style: TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.bold),
                             ),
-                          ),
-                        );
-                      },
-                      child: Text("Edit Profile"),
+                            Text(
+                              postCount.toString(),
+                              style: TextStyle(fontSize: 18),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    Padding(
+                      padding: EdgeInsets.all(10.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          OutlinedButton(
+                            onPressed: () {
+// Update the navigation in ProfilePage to pass the values
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => EditProfilePage(
+                                      profileImageUrl: message.profileImage,
+                                      username: message.name,
+                                      handle: message.handle,
+                                      bio: message.bio,
+                                      location: message
+                                          .location // Add location field in ProfilePage if needed
+                                      ),
+                                ),
+                              );
+                            },
+                            child: Text("Edit Profile"),
+                          )
+                        ],
+                      ),
                     )
                   ],
                 ),
-              )
-            ],
-          ),
-        ),
-      ),
-    );
+              ),
+            ),
+          );
+        });
   }
 }
 
@@ -278,22 +308,53 @@ class EditProfilePage extends StatefulWidget {
 }
 
 class _EditProfilePageState extends State<EditProfilePage> {
-  late String profileImageUrl;
+  late String _profileImageUrl;
   final ImagePicker _picker = ImagePicker();
+
+  late TextEditingController _usernameController;
+  late TextEditingController _handleController;
+  late TextEditingController _bioController;
+  late TextEditingController _locationController;
 
   @override
   void initState() {
     super.initState();
-    profileImageUrl = widget.profileImageUrl;
+    _profileImageUrl = widget.profileImageUrl;
+    _usernameController = TextEditingController(text: widget.username);
+    _handleController = TextEditingController(text: widget.handle);
+    _bioController = TextEditingController(text: widget.bio);
+    _locationController = TextEditingController(text: widget.location);
   }
 
   Future<void> _pickImage() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image != null) {
+      final bytes = await File(image.path).readAsBytes();
+      final base64String = base64Encode(bytes);
       setState(() {
-        profileImageUrl = image.path;
+        _profileImageUrl = base64String;
       });
     }
+  }
+
+  ImageProvider _getImageProvider() {
+    if (_profileImageUrl.startsWith('http')) {
+      return NetworkImage(_profileImageUrl);
+    } else if (_profileImageUrl.startsWith('/')) {
+      return FileImage(File(_profileImageUrl));
+    } else {
+      final bytes = base64Decode(_profileImageUrl);
+      return MemoryImage(bytes);
+    }
+  }
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _handleController.dispose();
+    _bioController.dispose();
+    _locationController.dispose();
+    super.dispose();
   }
 
   @override
@@ -310,7 +371,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 onTap: _pickImage,
                 child: CircleAvatar(
                   radius: 50,
-                  backgroundImage: NetworkImage(profileImageUrl),
+                  backgroundImage: _getImageProvider(),
                 ),
               ),
               SizedBox(height: 20),
@@ -319,7 +380,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   labelText: "Name",
                   border: OutlineInputBorder(),
                 ),
-                controller: TextEditingController(text: widget.username),
+                controller: _usernameController,
               ),
               SizedBox(height: 20),
               TextField(
@@ -327,7 +388,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   labelText: "Handle",
                   border: OutlineInputBorder(),
                 ),
-                controller: TextEditingController(text: widget.handle),
+                controller: _handleController,
               ),
               SizedBox(height: 20),
               TextField(
@@ -336,7 +397,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   border: OutlineInputBorder(),
                 ),
                 maxLines: 3,
-                controller: TextEditingController(text: widget.bio),
+                controller: _bioController,
               ),
               SizedBox(height: 20),
               TextField(
@@ -344,11 +405,23 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   labelText: "Location",
                   border: OutlineInputBorder(),
                 ),
-                controller: TextEditingController(text: widget.location),
+                controller: _locationController,
               ),
               SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () {
+                  // You can now use these values to update the profile or send them to the server
+                  String updatedUsername = _usernameController.text;
+                  String updatedHandle = _handleController.text;
+                  String updatedBio = _bioController.text;
+                  String updatedLocation = _locationController.text;
+                  UpdateUserProfile(
+                          name: updatedUsername,
+                          handle: updatedHandle,
+                          bio: updatedBio,
+                          location: updatedLocation,
+                          profileImage: _profileImageUrl)
+                      .sendSignalToRust();
                   // Handle save action
                 },
                 child: Text("Save"),
@@ -393,6 +466,8 @@ class HomePage extends StatelessWidget {
           children: <Widget>[
             IconButton(
               icon: Icon(Icons.home),
+              isSelected: true,
+              color: Colors.deepPurple,
               onPressed: () {},
             ),
             IconButton(

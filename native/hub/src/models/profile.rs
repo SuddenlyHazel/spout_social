@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use base64::Engine;
 use iroh_docs::rpc::client::docs::Doc;
 use iroh_docs::{store::Query, AuthorId, DocTicket};
 
@@ -6,6 +7,8 @@ use quic_rpc::transport::flume::FlumeConnector;
 use serde::{Deserialize, Serialize};
 
 use crate::{BlobsClient, DocsClient};
+
+const PERSON_PLACEHOLDER: &[u8] = include_bytes!("../../../../assets/person.png");
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Profile {
@@ -40,12 +43,14 @@ impl Controller {
         bio: String,
         location: String,
     ) -> anyhow::Result<Profile> {
+        let profile_image = base64::engine::general_purpose::URL_SAFE.encode(PERSON_PLACEHOLDER);
+
         let profile = Profile {
             name,
             handle,
             bio,
             location,
-            profile_image: String::new(),
+            profile_image,
         };
         doc.set_bytes(author, "profile", serde_json::to_vec(&profile)?)
             .await?;

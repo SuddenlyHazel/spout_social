@@ -1,12 +1,20 @@
-use futures::StreamExt;
+use std::sync::Arc;
+
+use futures::{lock, StreamExt};
 use iroh::{protocol::Router, Endpoint};
 use iroh_blobs::{
     net_protocol::Blobs, store::mem::Store, util::local_pool::LocalPool, ALPN as BLOBS_ALPN,
 };
 use iroh_docs::{protocol::Docs, rpc::client::docs::ShareMode, AuthorId, ALPN as DOCS_ALPN};
 use iroh_gossip::{net::Gossip, ALPN as GOSSIP_ALPN};
+use std::fs::File;
+use std::io::Read;
+use tokio::sync::{mpsc::Sender, Mutex};
 
-use crate::models;
+use crate::{
+    messages::{profile, ProfileSignal, RequestUserProfile, UpdateUserProfile},
+    models::{self, profile::Profile},
+};
 
 pub async fn launch_iroh() -> anyhow::Result<()> {
     // Create an endpoint, it allows creating and accepting
@@ -30,21 +38,18 @@ pub async fn launch_iroh() -> anyhow::Result<()> {
     let author = docs.client().authors().create().await?;
     println!("build the docs protocol");
 
-    let res = tokio::spawn(profile_signals(docs.clone(), blobs.clone(), author.clone())).await?;
-    println!("{res:?}");
     // Now we build a router that accepts blobs connections & routes them
     // to the blobs protocol.
+
+    let _ =
+        tokio::task::spawn(profile_signals(docs.clone(), blobs.clone(), author.clone())).await?;
+
     let router = builder
         .accept(BLOBS_ALPN, blobs.clone())
         .accept(GOSSIP_ALPN, gossip)
-        .accept(DOCS_ALPN, docs)
+        .accept(DOCS_ALPN, docs.clone())
         .spawn()
         .await?;
-
-    // Gracefully shut down the router
-    println!("Shutting down.");
-    router.shutdown().await?;
-    local_pool.shutdown().await;
 
     Ok(())
 }
@@ -58,6 +63,7 @@ pub async fn profile_signals(
     let mut doc_stream = doc_list;
     println!("Attempting to query docs");
     let mut all_docs = vec![];
+
     while let Some(doc) = doc_stream.next().await {
         match doc {
             Ok(doc) => {
@@ -85,14 +91,74 @@ pub async fn profile_signals(
         )
         .await?;
 
-        let profile = models::profile::Controller::load_profile(
+        let mut profile = models::profile::Controller::load_profile(
             docs.client(),
             blobs.client(),
             doc_ticket.clone(),
         )
         .await?;
-      
-        println!("{profile:?}");
+
+        let profile = Arc::new(Mutex::new(profile));
+
+        let (tx, mut rx) = tokio::sync::mpsc::channel(10);
+        let handle = tokio::task::spawn(profile_update_actor(profile.clone(), tx));
+
+        println!("Progressed here");
+
+        let _profile = profile.clone();
+        // Push updates to the UI on profile edit..
+        tokio::spawn(async move {
+            while let Some(_) = rx.recv().await {
+                let locked = _profile.lock().await;
+                ProfileSignal {
+                    name: locked.name.clone(),
+                    handle: locked.handle.clone(),
+                    bio: locked.bio.clone(),
+                    location: locked.location.clone(),
+                    profile_image: locked.profile_image.clone(),
+                }
+                .send_signal_to_dart();
+                drop(locked);
+            }
+        });
+
+        loop {
+            let listener = RequestUserProfile::get_dart_signal_receiver();
+
+            while let Some(_) = listener.recv().await {
+                println!("Received profile request");
+                let locked = profile.lock().await;
+
+                ProfileSignal {
+                    name: locked.name.clone(),
+                    handle: locked.handle.clone(),
+                    bio: locked.bio.clone(),
+                    location: locked.location.clone(),
+                    profile_image: locked.profile_image.clone(),
+                }
+                .send_signal_to_dart();
+                drop(locked);
+                println!("Send profile info");
+            }
+            println!("Profile req listener returned")
+        }
     }
     Ok(())
+}
+
+async fn profile_update_actor(profile: Arc<Mutex<Profile>>, updated: Sender<()>) {
+    let listener = UpdateUserProfile::get_dart_signal_receiver();
+
+    while let Some(update_request) = listener.recv().await {
+        let req = update_request.message;
+        let mut locked = profile.lock().await;
+        locked.name = req.name;
+        locked.bio = req.bio;
+        locked.handle = req.handle;
+        locked.location = req.location;
+        locked.profile_image = req.profile_image;
+        drop(locked);
+        println!("Wrote profile updates :3");
+        updated.send(()).await;
+    }
 }
