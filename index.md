@@ -10,7 +10,7 @@ erDiagram
     contributor ||--|| user : "is"
     reader ||--|| user : "is"
     coordinator ||--|| user: "is"
-    coordinator |o..|{ action_log : "consumes"
+    coordinator |o..|{ user_document : "consumes"
 
     user_document{
         text handle
@@ -19,7 +19,6 @@ erDiagram
         text name
         text location
     }
-    user ||--|{ user_document : "maintains"
 
 
     relay ||--o{ cell : "lists"
@@ -57,6 +56,7 @@ erDiagram
         text context_id
         text body
     }
+    user ||--|{ user_document : "maintains"
 
     reaction{
         text user_id
