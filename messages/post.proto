@@ -27,3 +27,13 @@ message CreatePostRequest {
   string title = 1;
   string body = 2;
 }
+
+// [DART-SIGNAL]
+message OwnerPostAction {
+  enum Action {
+    DELETE = 0;
+    UPDATE = 1;
+  }
+  string post_id = 1;
+  Action action = 2;
+}

@@ -55,10 +55,9 @@ pub async fn launch_iroh(app_db: Db) -> anyhow::Result<()> {
         .await?;
 
     // We initialize the Blobs protocol in-memory
-    let local_pool = LocalPool::default();
     let blobs = Blobs::persistent(data_dir.clone())
         .await?
-        .build(&local_pool, &endpoint);
+        .build(&endpoint);
     
     println!("addr is.. {:?}", endpoint.node_addr().await);
 

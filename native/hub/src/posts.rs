@@ -12,7 +12,11 @@ use iroh_docs::{
 use sled::Db;
 
 use crate::{
-    messages::{CreatePostRequest, LogPostsTicket, Post, PostQueryResponse, PostsRequestQuery},
+    messages::{
+        owner_post_action::Action::{Delete, Update},
+        CreatePostRequest, LogPostsTicket, OwnerPostAction, Post, PostQueryResponse,
+        PostsRequestQuery,
+    },
     BlobsClient, DocsClient, SpoutDoc,
 };
 use chrono::Utc;
@@ -45,8 +49,15 @@ pub async fn start_actors(
             .expect("Failed to write posts id to app_db");
         doc
     };
+
     tokio::task::spawn(posts_create_actor(app_db.clone(), doc.clone(), author_id));
-    tokio::task::spawn(posts_query_actor(app_db, doc, blobs, author_id));
+    tokio::task::spawn(posts_query_actor(
+        app_db.clone(),
+        doc.clone(),
+        blobs,
+        author_id,
+    ));
+    tokio::task::spawn(post_actions_actor(app_db.clone(), doc.clone(), author_id));
 }
 async fn posts_query_actor(
     app_db: Db,
@@ -66,7 +77,6 @@ async fn posts_query_actor(
             .limit(amount as u64);
 
         let mut docs = doc.get_many(q).await?;
-
         let mut posts = vec![];
         while let Some(Ok(entry)) = docs.next().await {
             let post_author = entry.author();
@@ -89,6 +99,25 @@ async fn posts_query_actor(
     Ok(())
 }
 
+async fn post_actions_actor(
+    app_db: Db,
+    doc: SpoutDoc,
+    author_id: iroh_docs::AuthorId,
+) -> anyhow::Result<()> {
+    let recv = OwnerPostAction::get_dart_signal_receiver();
+
+    while let Some(action) = recv.recv().await {
+        let post_id = &action.message.post_id;
+        match action.message.action() {
+            Delete => {
+                let _ = doc.del(author_id.clone(), post_id.clone()).await;
+            }
+            Update => todo!(),
+        }
+    }
+    Ok(())
+}
+
 async fn posts_create_actor(
     app_db: Db,
     doc: SpoutDoc,
@@ -104,7 +133,7 @@ async fn posts_create_actor(
 
         while let Some(_) = recv.recv().await {
             let ticket = doc
-                .share(Read, iroh_docs::rpc::AddrInfoOptions::RelayAndAddresses)
+                .share(Read, iroh_docs::rpc::AddrInfoOptions::Id)
                 .await
                 .expect("Failed to create debug share ticket");
             println!("{}", ticket.to_string());
@@ -116,9 +145,15 @@ async fn posts_create_actor(
     tokio::task::spawn(async move {
         let doc = _doc.clone();
         let mut timer = tokio::time::interval(Duration::from_secs(30));
+
+        let mut peers = String::new();
         loop {
             timer.tick().await;
-            println!("{:#?}", doc.get_sync_peers().await);
+            let new_peers_maybe = format!("{:#?}", doc.get_sync_peers().await);
+            if peers != new_peers_maybe {
+                peers = new_peers_maybe;
+                println!("Peers updated {}", peers);
+            }
         }
     });
 
