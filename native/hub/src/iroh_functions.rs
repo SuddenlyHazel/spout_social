@@ -1,15 +1,12 @@
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
-use directories::ProjectDirs;
-use futures::{lock, StreamExt};
 use iroh::{protocol::Router, Endpoint, SecretKey};
-use iroh_base::ticket::Ticket;
 use iroh_blobs::{
-    net_protocol::Blobs, store::fs::Store, util::local_pool::LocalPool, ALPN as BLOBS_ALPN,
+    net_protocol::Blobs, store::fs::Store, ALPN as BLOBS_ALPN,
 };
 use iroh_docs::{
-    protocol::Docs, rpc::client::docs::ShareMode, AuthorId, DocTicket, NamespaceId,
+    protocol::Docs, AuthorId, NamespaceId,
     ALPN as DOCS_ALPN,
 };
 use iroh_gossip::{net::Gossip, ALPN as GOSSIP_ALPN};
@@ -18,7 +15,7 @@ use tokio::sync::{mpsc::Sender, Mutex};
 
 use crate::{
     app_fs,
-    messages::{profile, ProfileSignal, RequestUserProfile, UpdateUserProfile},
+    messages::{ProfileSignal, RequestUserProfile, UpdateUserProfile},
     models::{
         self,
         profile::{Controller, Profile},

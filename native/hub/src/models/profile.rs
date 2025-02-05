@@ -1,10 +1,8 @@
 use anyhow::anyhow;
 use base64::Engine;
 use iroh_blobs::Hash;
-use iroh_docs::rpc::client::docs::Doc;
 use iroh_docs::{store::Query, AuthorId, DocTicket};
 
-use quic_rpc::transport::flume::FlumeConnector;
 use serde::{Deserialize, Serialize};
 
 use crate::{BlobsClient, DocsClient, SpoutDoc};

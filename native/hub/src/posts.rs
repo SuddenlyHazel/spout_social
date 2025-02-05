@@ -1,11 +1,9 @@
 use std::time::Duration;
 
-use anyhow::Context;
 use futures::StreamExt;
 use iroh::{NodeAddr, NodeId};
-use iroh_blobs::get::request;
 use iroh_docs::{
-    rpc::client::docs::ShareMode::{self, Read},
+    rpc::client::docs::ShareMode::{Read},
     store::Query,
     NamespaceId,
 };
@@ -129,7 +127,7 @@ async fn posts_create_actor(
 
     tokio::task::spawn(async move {
         let doc = _doc;
-        let mut recv = LogPostsTicket::get_dart_signal_receiver();
+        let recv = LogPostsTicket::get_dart_signal_receiver();
 
         while let Some(_) = recv.recv().await {
             let ticket = doc
