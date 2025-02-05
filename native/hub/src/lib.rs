@@ -13,9 +13,9 @@ mod app_fs;
 mod iroh_functions;
 mod messages;
 mod models;
+mod posts;
 mod sample_functions;
 mod tutorial_function;
-mod posts;
 
 // Uncomment below to target the web.
 // use tokio_with_wasm::alias as tokio;
