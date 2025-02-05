@@ -17,10 +17,13 @@ use sled::Db;
 use tokio::sync::{mpsc::Sender, Mutex};
 
 use crate::{
-    app_fs, messages::{profile, ProfileSignal, RequestUserProfile, UpdateUserProfile}, models::{
+    app_fs,
+    messages::{profile, ProfileSignal, RequestUserProfile, UpdateUserProfile},
+    models::{
         self,
         profile::{Controller, Profile},
-    }, posts, SpoutDoc
+    },
+    posts, SpoutDoc,
 };
 
 const SECRET_KEY: &'static str = &"NODE_SECRET_KEY";
@@ -56,7 +59,7 @@ pub async fn launch_iroh(app_db: Db) -> anyhow::Result<()> {
     let blobs = Blobs::persistent(data_dir.clone())
         .await?
         .build(&local_pool, &endpoint);
-
+    
     println!("addr is.. {:?}", endpoint.node_addr().await);
 
     let builder = Router::builder(endpoint);
@@ -78,16 +81,12 @@ pub async fn launch_iroh(app_db: Db) -> anyhow::Result<()> {
 
     println!("build the docs protocol");
 
-    tokio::spawn(posts::start_actors(app_db.clone(), docs.client().to_owned(), blobs.client().to_owned(), author.clone()));
-
-
-    let _ = tokio::task::spawn(profile_signals(
-        docs.clone(),
-        blobs.clone(),
-        author.clone(),
+    tokio::spawn(posts::start_actors(
         app_db.clone(),
-    ))
-    .await?;
+        docs.client().to_owned(),
+        blobs.client().to_owned(),
+        author.clone(),
+    ));
 
     let router = builder
         .accept(BLOBS_ALPN, blobs.clone())
@@ -95,6 +94,13 @@ pub async fn launch_iroh(app_db: Db) -> anyhow::Result<()> {
         .accept(DOCS_ALPN, docs.clone())
         .spawn()
         .await?;
+    let _ = tokio::task::spawn(profile_signals(
+        docs.clone(),
+        blobs.clone(),
+        author.clone(),
+        app_db.clone(),
+    ))
+    .await?;
 
     Ok(())
 }

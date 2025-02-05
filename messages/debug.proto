@@ -1,0 +1,10 @@
+syntax = "proto3";
+package debug;
+
+// [DART-SIGNAL]
+message LogProfileTicket {
+}
+
+// [DART-SIGNAL]
+message LogPostsTicket {
+}

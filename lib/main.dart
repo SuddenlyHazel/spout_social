@@ -3,7 +3,9 @@ import 'dart:io';
 
 import 'package:fixnum/fixnum.dart';
 import 'package:flutter/material.dart';
+
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import 'package:rinf/rinf.dart';
 import './messages/all.dart';
 
@@ -38,13 +40,41 @@ class MainApp extends StatelessWidget {
         "/profile": (BuildContext context) {
           return const ProfilePage();
         },
+        "/settings": (BuildContext context) {
+          return const SettingsPage();
+        },
       },
     );
   }
 }
 
-class CreatePostPage extends StatelessWidget {
+class CreatePostPage extends StatefulWidget {
   const CreatePostPage({super.key});
+
+  @override
+  _CreatePostPageState createState() => _CreatePostPageState();
+}
+
+class _CreatePostPageState extends State<CreatePostPage> {
+  final TextEditingController _bodyTextController = TextEditingController();
+  final TextEditingController _titleTextController = TextEditingController();
+
+  @override
+  void dispose() {
+    _bodyTextController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _createPost() async {
+    final String bodyContent = _bodyTextController.text;
+    final String titleContent = _titleTextController.text;
+
+    CreatePostRequest(body: bodyContent, title: titleContent)
+        .sendSignalToRust();
+    _bodyTextController.clear();
+    Navigator.pop(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -54,31 +84,43 @@ class CreatePostPage extends StatelessWidget {
         mainAxisSize: MainAxisSize.max,
         children: [
           Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                spacing: 10.0,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        "Whatcha thinking about?",
-                        style: TextStyle(fontSize: 23.0),
-                        textAlign: TextAlign.left,
-                      ),
-                    ],
-                  ),
-                  TextField(
-                    maxLines: null,
-                    minLines: 4,
-                    autocorrect: true,
-                    keyboardType: TextInputType.multiline,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(),
-                      hintText: 'Write something wonderful!',
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              spacing: 5.0,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      "Whatcha thinking about?",
+                      style: TextStyle(fontSize: 23.0),
+                      textAlign: TextAlign.left,
                     ),
+                  ],
+                ),
+                TextField(
+                  controller: _titleTextController,
+                  maxLines: 1,
+                  autocorrect: true,
+                  keyboardType: TextInputType.multiline,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: 'Post Title',
                   ),
-                ],
-              ))
+                ),
+                TextField(
+                  controller: _bodyTextController,
+                  maxLines: null,
+                  minLines: 4,
+                  autocorrect: true,
+                  keyboardType: TextInputType.multiline,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: 'Write something wonderful!',
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
       bottomNavigationBar: BottomAppBar(
@@ -88,14 +130,12 @@ class CreatePostPage extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(200, 50),
-                ),
-                onPressed: () {
-                  CreatePostRequest(body: "Test Post!", title: "Test Tile :3")
-                      .sendSignalToRust();
-                },
-                child: Icon(Icons.send))
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(200, 50),
+              ),
+              onPressed: _createPost,
+              child: Icon(Icons.send),
+            ),
           ],
         ),
       ),
@@ -118,56 +158,50 @@ class Post extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(5),
+          border: Border.all(
+              color: theme.colorScheme.secondaryContainer, width: 2)),
       margin: const EdgeInsets.all(10.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                Text(author, style: TextStyle(fontWeight: FontWeight.bold)),
-                Text(date, style: TextStyle(color: Colors.grey)),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style:
-                        TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold)),
-                SizedBox(height: 10.0),
-                Text(text),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 5.0, horizontal: 10.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(author,
+                style: TextStyle(fontWeight: FontWeight.bold),
+                textAlign: TextAlign.left),
+            Text(date,
+                style: TextStyle(color: Colors.grey, fontSize: 13.0),
+                textAlign: TextAlign.left),
+            SizedBox(height: 10.0),
+            Text(title,
+                style: TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold)),
+            SizedBox(height: 2.0),
+            Text(text),
+            SizedBox(height: 10.0),
+            Row(
               mainAxisAlignment: MainAxisAlignment.start,
               children: [
                 Icon(Icons.favorite, color: Colors.red),
                 SizedBox(width: 5.0),
               ],
             ),
-          ),
-          OverflowBar(
-            alignment: MainAxisAlignment.end,
-            children: [
-              IconButton(
-                icon: Icon(Icons.favorite_border),
-                onPressed: () {
-                  // Handle like action
-                },
-              ),
-            ],
-          ),
-        ],
+            OverflowBar(
+              alignment: MainAxisAlignment.end,
+              children: [
+                IconButton(
+                  icon: Icon(Icons.favorite_border),
+                  onPressed: () {
+                    // Handle like action
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -449,14 +483,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 }
 
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+class PostFeed extends StatefulWidget {
+  const PostFeed({super.key});
 
   @override
-  _HomePageState createState() => _HomePageState();
+  _PostFeedState createState() => _PostFeedState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _PostFeedState extends State<PostFeed> {
   @override
   void initState() {
     super.initState();
@@ -468,15 +502,129 @@ class _HomePageState extends State<HomePage> {
     // Example code to execute when the widget is created
     print("HomePage initialized");
     PostsRequestQuery(startAt: Int64(0), amount: 100).sendSignalToRust();
-    
+
     // You can add more initialization code here
   }
+
+  Future<void> _refreshPosts() async {
+    // Implement your refresh logic here
+    PostsRequestQuery(startAt: Int64(0), amount: 100).sendSignalToRust();
+    print("Refreshed");
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder(
+      stream: PostQueryResponse.rustSignalStream,
+      builder: (context, snapshot) {
+        final rustSignal = snapshot.data;
+        if (rustSignal == null) {
+          return Text("Nothing received yet champ");
+        }
+        final posts = rustSignal.message.posts;
+        return RefreshIndicator(
+            onRefresh: _refreshPosts,
+            child: ListView.builder(
+              itemCount: posts.length,
+              itemBuilder: (BuildContext context, int index) {
+                final post = posts[index];
+                final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
+                return Post(
+                  author: post.author,
+                  date: dateFormat.format(DateTime.fromMillisecondsSinceEpoch(
+                          post.createdAt.toInt())
+                      .toLocal()),
+                  title: post.title,
+                  text: post.body,
+                );
+              },
+            ));
+      },
+    );
+  }
+}
+
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
+
+  @override
+  _HomePageState createState() => _HomePageState();
+}
+
+class SettingsPage extends StatefulWidget {
+  const SettingsPage({super.key});
+
+  @override
+  _SettingsPageState createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<SettingsPage> {
+  bool _notificationsEnabled = true;
+  String _selectedTheme = 'Light';
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("queer.ooo"),
+        title: Text('Settings'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SwitchListTile(
+              title: Text('Enable Notifications'),
+              value: _notificationsEnabled,
+              onChanged: (bool value) {
+                setState(() {
+                  _notificationsEnabled = value;
+                });
+              },
+            ),
+            SizedBox(height: 20),
+            Text('Select Theme'),
+            ListTile(
+              title: const Text('Light'),
+              leading: Radio<String>(
+                value: 'Light',
+                groupValue: _selectedTheme,
+                onChanged: (String? value) {
+                  setState(() {
+                    _selectedTheme = value!;
+                  });
+                },
+              ),
+            ),
+            ListTile(
+              title: const Text('Dark'),
+              leading: Radio<String>(
+                value: 'Dark',
+                groupValue: _selectedTheme,
+                onChanged: (String? value) {
+                  setState(() {
+                    _selectedTheme = value!;
+                  });
+                },
+              ),
+            ),
+            OutlinedButton(onPressed: () {
+              LogPostsTicket().sendSignalToRust();
+            }, child: Text("Print Profile Ticket"))
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HomePageState extends State<HomePage> {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title:
+            Text("Spout Social", style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(onPressed: () {}, icon: const Icon(Icons.favorite)),
           IconButton(onPressed: () {}, icon: const Icon(Icons.search))
@@ -512,7 +660,9 @@ class _HomePageState extends State<HomePage> {
             SizedBox(width: 48), // The dummy child
             IconButton(
               icon: Icon(Icons.settings),
-              onPressed: () {},
+              onPressed: () {
+                Navigator.pushNamed(context, "/settings");
+              },
             ),
             IconButton(
               icon: Icon(Icons.face),
@@ -524,49 +674,7 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      body: Center(
-        child: Column(
-          children: [
-            const Post(
-              author: "Hazel",
-              date: "2023-10-10",
-              title: "Sample Post",
-              text: "This is a sample post to demonstrate the Post widget.",
-            ),
-            StreamBuilder(
-                stream: PostQueryResponse.rustSignalStream,
-                builder: (context, snapshot) {
-                  final rustSignal = snapshot.data;
-                  if (rustSignal == null) {
-                    return Text("Nothing received yet champ");
-                  }
-                  final posts = rustSignal.message.posts;
-                  return Column(
-                    children: posts.map<Widget>((post) {
-                      return Post(
-                        author: "PlaceHolder",
-                        date: "Today",
-                        title: post.title,
-                        text: post.body,
-                      );
-                    }).toList(),
-                  );
-                }),
-            StreamBuilder(
-                stream: MyAmazingNumber.rustSignalStream,
-                builder: (context, snapshot) {
-                  final rustSignal = snapshot.data;
-                  if (rustSignal == null) {
-                    return Text("Nothing received yet champ");
-                  }
-                  final myAmazingNumber = rustSignal.message;
-                  final currentNumber = myAmazingNumber.currentNumber;
-                  return Text(currentNumber.toString());
-                }),
-            Text("Does hot reload work?!")
-          ],
-        ),
-      ),
+      body: PostFeed(),
     );
   }
 }

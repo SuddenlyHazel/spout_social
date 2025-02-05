@@ -7,6 +7,8 @@ message Post {
   string title = 1;
   string body = 2;
   int64 created_at = 3;
+  string author = 4;
+  string author_id = 5;
 }
 
 // [RUST-SIGNAL]
