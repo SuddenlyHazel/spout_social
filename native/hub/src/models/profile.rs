@@ -25,7 +25,17 @@ const PROFILE_KEY: &'static str = "profile";
 pub struct Controller {}
 
 impl Controller {
-    pub async fn load_profile(
+    pub async fn load_profile_from_doc(
+        doc: SpoutDoc,
+        blobs_client: &BlobsClient,
+    ) -> anyhow::Result<Profile> {
+        if let Some(entry) = doc.get_one(Query::key_exact("profile")).await? {
+            let blob = blobs_client.read_to_bytes(entry.content_hash()).await?;
+            return Ok(serde_json::from_slice(&blob)?);
+        }
+        Err(anyhow!("Profile entry was not found in document"))
+    }
+    pub async fn load_profile_from_ticket(
         docs_client: &DocsClient,
         blobs_client: &BlobsClient,
         ticket: DocTicket,
@@ -39,7 +49,7 @@ impl Controller {
     }
 
     pub async fn write_profile(
-        doc:&SpoutDoc,
+        doc: &SpoutDoc,
         author_id: AuthorId,
         profile: &Profile,
     ) -> anyhow::Result<Hash> {
@@ -49,7 +59,7 @@ impl Controller {
     }
 
     pub async fn create_profile(
-        docs_client : &DocsClient,
+        docs_client: &DocsClient,
         author: AuthorId,
         name: String,
         handle: String,
@@ -67,7 +77,8 @@ impl Controller {
             location,
             profile_image,
         };
-        new_doc.set_bytes(author, PROFILE_KEY, serde_json::to_vec(&profile)?)
+        new_doc
+            .set_bytes(author, PROFILE_KEY, serde_json::to_vec(&profile)?)
             .await?;
         Ok((profile, new_doc))
     }

@@ -41,7 +41,7 @@ async fn main() {
     tokio::spawn(sample_functions::communicate());
     tokio::spawn(tutorial_function::calculate_precious_data());
     tokio::spawn(tutorial_function::stream_amazing_number());
-    tokio::spawn(iroh_functions::launch_iroh());
+    tokio::spawn(iroh_functions::launch_iroh(spout_db.clone()));
 
     // Keep the main function running until Dart shutdown.
     rinf::dart_shutdown().await;

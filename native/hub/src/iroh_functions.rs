@@ -1,13 +1,19 @@
 use std::sync::Arc;
 
+use anyhow::{anyhow, Context};
 use directories::ProjectDirs;
 use futures::{lock, StreamExt};
-use iroh::{protocol::Router, Endpoint};
+use iroh::{protocol::Router, Endpoint, SecretKey};
+use iroh_base::ticket::Ticket;
 use iroh_blobs::{
     net_protocol::Blobs, store::fs::Store, util::local_pool::LocalPool, ALPN as BLOBS_ALPN,
 };
-use iroh_docs::{protocol::Docs, rpc::client::docs::ShareMode, AuthorId, ALPN as DOCS_ALPN};
+use iroh_docs::{
+    protocol::Docs, rpc::client::docs::ShareMode, AuthorId, DocTicket, NamespaceId,
+    ALPN as DOCS_ALPN,
+};
 use iroh_gossip::{net::Gossip, ALPN as GOSSIP_ALPN};
+use sled::Db;
 use tokio::sync::{mpsc::Sender, Mutex};
 
 use crate::{
@@ -20,7 +26,10 @@ use crate::{
     SpoutDoc,
 };
 
-pub async fn launch_iroh() -> anyhow::Result<()> {
+const SECRET_KEY: &'static str = &"NODE_SECRET_KEY";
+const PROFILE_DOC_KEY: &'static str = &"PROFILE_DOC_KEY";
+
+pub async fn launch_iroh(app_db: Db) -> anyhow::Result<()> {
     // Create an endpoint, it allows creating and accepting
     // connections in the iroh p2p world
 
@@ -28,7 +37,22 @@ pub async fn launch_iroh() -> anyhow::Result<()> {
 
     println!("{:?}", data_dir.canonicalize());
 
-    let endpoint = Endpoint::builder().discovery_n0().bind().await?;
+    let secret_key = if let Ok(Some(key)) = app_db.get(SECRET_KEY) {
+        serde_json::from_slice(&key)?
+    } else {
+        let mut rng = rand::rngs::OsRng;
+        let secret_key = SecretKey::generate(&mut rng);
+        app_db
+            .insert(SECRET_KEY, serde_json::to_vec(&secret_key)?)
+            .context("Failed to store secret. Cannot continue")?;
+        secret_key
+    };
+
+    let endpoint = Endpoint::builder()
+        .secret_key(secret_key)
+        .discovery_n0()
+        .bind()
+        .await?;
 
     // We initialize the Blobs protocol in-memory
     let local_pool = LocalPool::default();
@@ -60,8 +84,13 @@ pub async fn launch_iroh() -> anyhow::Result<()> {
     // Now we build a router that accepts blobs connections & routes them
     // to the blobs protocol.
 
-    let _ =
-        tokio::task::spawn(profile_signals(docs.clone(), blobs.clone(), author.clone())).await?;
+    let _ = tokio::task::spawn(profile_signals(
+        docs.clone(),
+        blobs.clone(),
+        author.clone(),
+        app_db.clone(),
+    ))
+    .await?;
 
     let router = builder
         .accept(BLOBS_ALPN, blobs.clone())
@@ -77,29 +106,40 @@ pub async fn profile_signals(
     docs: Docs<Store>,
     blobs: Blobs<Store>,
     author: AuthorId,
+    app_db: Db,
 ) -> anyhow::Result<()> {
-    println!("No documents found.. safe to assume this is a new account");
+    let (profile, doc) = if let Ok(Some(existing_doc)) = app_db.get(PROFILE_DOC_KEY) {
+        let namespace_id: NamespaceId = serde_json::from_slice(&existing_doc)?;
+        if let Some(doc) = docs.client().open(namespace_id).await? {
+            let profile = Controller::load_profile_from_doc(doc.clone(), &blobs.client()).await?;
+            println!("Found existing profile document.. neato");
+            (profile, doc)
+        } else {
+            return Err(anyhow!(
+                "Failed to load profile from existing doc. Datastore might be corrupted"
+            ));
+        }
+    } else {
+        println!("Existing profile document wasnt found. Lets create one");
 
-    let (profile, profile_doc) = models::profile::Controller::create_profile(
-        docs.client(),
-        author.clone(),
-        "New User".into(),
-        "Fake Handle".into(),
-        "Strange new user".into(),
-        "devnull".into(),
-    )
-    .await?;
-
-    let doc_ticket = profile_doc
-        .share(ShareMode::Write, Default::default())
+        let (profile, doc) = models::profile::Controller::create_profile(
+            docs.client(),
+            author.clone(),
+            "New User".into(),
+            "Fake Handle".into(),
+            "Strange new user".into(),
+            "devnull".into(),
+        )
         .await?;
+        println!("Storing newly created document for l8tr");
+        app_db
+            .insert(PROFILE_DOC_KEY, serde_json::to_vec(&doc.id())?)
+            .context("Failed to store new profile document id in app_db")?;
+        (profile, doc)
+    };
 
-    let profile = models::profile::Controller::load_profile(
-        docs.client(),
-        blobs.client(),
-        doc_ticket.clone(),
-    )
-    .await?;
+    let profile =
+        models::profile::Controller::load_profile_from_doc(doc.clone(), blobs.client()).await?;
 
     let profile = Arc::new(Mutex::new(profile));
 
@@ -107,7 +147,7 @@ pub async fn profile_signals(
     let _ = tokio::task::spawn(profile_update_actor(
         profile.clone(),
         tx,
-        profile_doc.clone(),
+        doc.clone(),
         author.clone(),
     ));
 

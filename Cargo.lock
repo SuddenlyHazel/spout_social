@@ -1829,6 +1829,7 @@ dependencies = [
  "iroh-gossip",
  "prost",
  "quic-rpc",
+ "rand",
  "rinf",
  "serde",
  "serde_json",
