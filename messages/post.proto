@@ -1,0 +1,27 @@
+syntax = "proto3";
+package post;
+
+// [RUST-SIGNAL]
+// [RUST-ATTRIBUTE(#[derive(serde::Serialize, serde::Deserialize)])]
+message Post {
+  string title = 1;
+  string body = 2;
+  int64 created_at = 3;
+}
+
+// [RUST-SIGNAL]
+message PostQueryResponse {
+  repeated Post posts = 1;
+}
+
+// [DART-SIGNAL]
+message PostsRequestQuery {
+  int64 start_at = 1;
+  int32 amount = 2;
+}
+
+// [DART-SIGNAL]
+message CreatePostRequest {
+  string title = 1;
+  string body = 2;
+}

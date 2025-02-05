@@ -30,6 +30,7 @@ image = "0.25.5"
 directories = "6.0.0"
 sled = "0.34.7"
 rand = "0.8.5"
+chrono = "0.4.39"
 
 # Uncomment below to target the web.
 # tokio_with_wasm = { version = "0.7.2", features = ["rt", "macros"] }

@@ -17,13 +17,10 @@ use sled::Db;
 use tokio::sync::{mpsc::Sender, Mutex};
 
 use crate::{
-    app_fs,
-    messages::{profile, ProfileSignal, RequestUserProfile, UpdateUserProfile},
-    models::{
+    app_fs, messages::{profile, ProfileSignal, RequestUserProfile, UpdateUserProfile}, models::{
         self,
         profile::{Controller, Profile},
-    },
-    SpoutDoc,
+    }, posts, SpoutDoc
 };
 
 const SECRET_KEY: &'static str = &"NODE_SECRET_KEY";
@@ -81,8 +78,8 @@ pub async fn launch_iroh(app_db: Db) -> anyhow::Result<()> {
 
     println!("build the docs protocol");
 
-    // Now we build a router that accepts blobs connections & routes them
-    // to the blobs protocol.
+    tokio::spawn(posts::start_actors(app_db.clone(), docs.client().to_owned(), blobs.client().to_owned(), author.clone()));
+
 
     let _ = tokio::task::spawn(profile_signals(
         docs.clone(),

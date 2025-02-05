@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:fixnum/fixnum.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:rinf/rinf.dart';
@@ -90,7 +91,10 @@ class CreatePostPage extends StatelessWidget {
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size(200, 50),
                 ),
-                onPressed: () {},
+                onPressed: () {
+                  CreatePostRequest(body: "Test Post!", title: "Test Tile :3")
+                      .sendSignalToRust();
+                },
                 child: Icon(Icons.send))
           ],
         ),
@@ -181,6 +185,7 @@ class _ProfilePageState extends State<ProfilePage> {
       "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=3540&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D";
   String username = "Username";
   String handle = "@handle";
+  String bio = "Bio";
   int postCount = 42;
 
   @override
@@ -230,7 +235,12 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                     Text(
                       message.handle,
-                      style: TextStyle(fontSize: 18, color: Colors.grey),
+                      style: TextStyle(fontSize: 14, color: Colors.grey),
+                    ),
+                    SizedBox(height: 10),
+                    Text(
+                      message.bio,
+                      style: TextStyle(fontSize: 14),
                     ),
                     SizedBox(height: 20),
                     Row(
@@ -256,6 +266,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
+                          SizedBox(height: 100),
                           OutlinedButton(
                             onPressed: () {
 // Update the navigation in ProfilePage to pass the values
@@ -409,7 +420,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
               SizedBox(height: 20),
               ElevatedButton(
-                onPressed: () {
+                onPressed: () async {
                   // You can now use these values to update the profile or send them to the server
                   String updatedUsername = _usernameController.text;
                   String updatedHandle = _handleController.text;
@@ -422,6 +433,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           location: updatedLocation,
                           profileImage: _profileImageUrl)
                       .sendSignalToRust();
+                  // Add an artifical delay cause its kinda jarring how quickly it pops back over
+                  // weird right?
+                  await Future.delayed(const Duration(milliseconds: 100));
+                  Navigator.pop(context);
                   // Handle save action
                 },
                 child: Text("Save"),
@@ -434,8 +449,28 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 }
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  _HomePageState createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  @override
+  void initState() {
+    super.initState();
+    // Add your code here to execute when the widget is created
+    _initializeHomePage();
+  }
+
+  Future<void> _initializeHomePage() async {
+    // Example code to execute when the widget is created
+    print("HomePage initialized");
+    PostsRequestQuery(startAt: Int64(0), amount: 100).sendSignalToRust();
+    
+    // You can add more initialization code here
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -498,6 +533,25 @@ class HomePage extends StatelessWidget {
               title: "Sample Post",
               text: "This is a sample post to demonstrate the Post widget.",
             ),
+            StreamBuilder(
+                stream: PostQueryResponse.rustSignalStream,
+                builder: (context, snapshot) {
+                  final rustSignal = snapshot.data;
+                  if (rustSignal == null) {
+                    return Text("Nothing received yet champ");
+                  }
+                  final posts = rustSignal.message.posts;
+                  return Column(
+                    children: posts.map<Widget>((post) {
+                      return Post(
+                        author: "PlaceHolder",
+                        date: "Today",
+                        title: post.title,
+                        text: post.body,
+                      );
+                    }).toList(),
+                  );
+                }),
             StreamBuilder(
                 stream: MyAmazingNumber.rustSignalStream,
                 builder: (context, snapshot) {
