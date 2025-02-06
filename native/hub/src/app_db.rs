@@ -6,8 +6,18 @@ use crate::app_fs;
 pub async fn app_db() -> anyhow::Result<sled::Db> {
     let data_dir = app_fs::app_data_path().await?;
     let db_path = data_dir.join("spout.db");
+    debug_print!("{db_path:?} {:?}", db_path.canonicalize());
     if !db_path.exists() {
         debug_print!("App DB doesn't exist. Attempting to create..");
     }
-    Ok(sled::open(db_path).context("Failed to create AppDB. Thats not great..")?)
+    let cfg = sled::Config::default();
+
+    let db = cfg
+        .flush_every_ms(Some(100))
+        .path(db_path)
+        .open()
+        .context("Failed to create AppDB. Thats not great..")?;
+    let r = db.flush();
+    debug_print!("{r:?}");
+    Ok(db)
 }
