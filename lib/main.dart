@@ -72,7 +72,11 @@ class _CreatePostPageState extends State<CreatePostPage> {
     CreatePostRequest(body: bodyContent, title: titleContent)
         .sendSignalToRust();
     _bodyTextController.clear();
-    Navigator.pop(context);
+    Navigator.pop(context, "posts.updated");
+    // Delay the execution to ensure the page transition is complete
+    Future.delayed(Duration(milliseconds: 100), () {
+      PostsRequestQuery(startAt: Int64(0), amount: 100).sendSignalToRust();
+    });
   }
 
   @override
@@ -144,17 +148,22 @@ class _CreatePostPageState extends State<CreatePostPage> {
 }
 
 class Post extends StatelessWidget {
-  const Post(
-      {super.key,
-      required this.author,
-      required this.date,
-      required this.title,
-      required this.text});
+  const Post({
+    super.key,
+    required this.postId,
+    required this.author,
+    required this.date,
+    required this.title,
+    required this.text,
+    required this.onDelete,
+  });
 
+  final String postId;
   final String author;
   final String date;
   final String title;
   final String text;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -170,12 +179,78 @@ class Post extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(author,
-                style: TextStyle(fontWeight: FontWeight.bold),
-                textAlign: TextAlign.left),
-            Text(date,
-                style: TextStyle(color: Colors.grey, fontSize: 13.0),
-                textAlign: TextAlign.left),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(author,
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.left),
+                    Text(date,
+                        style: TextStyle(color: Colors.grey, fontSize: 13.0),
+                        textAlign: TextAlign.left),
+                  ],
+                ),
+                PopupMenuButton<String>(
+                  onSelected: (String result) {
+                    switch (result) {
+                      case 'edit':
+                        // Handle edit action
+                        break;
+                      case 'delete':
+                        showDialog(
+                            context: context,
+                            builder: (BuildContext builder) {
+                              final theme = Theme.of(context);
+
+                              return AlertDialog(
+                                  title: Text("Just checking.."),
+                                  content: const Text(
+                                      'Are you sure you want to delete this post? This cannot be undone, pal.'),
+                                  actions: <Widget>[
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(context, 'Cancel'),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    FilledButton(
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor:
+                                            theme.colorScheme.error,
+                                      ),
+                                      onPressed: () {
+                                        OwnerPostAction(
+                                                postId: postId,
+                                                action: OwnerPostAction_Action
+                                                    .DELETE)
+                                            .sendSignalToRust();
+                                        onDelete();
+                                        Navigator.pop(context, "Delete");
+                                      },
+                                      child: const Text('OK'),
+                                    ),
+                                  ]);
+                            });
+                        // Handle delete action
+                        break;
+                    }
+                  },
+                  itemBuilder: (BuildContext context) =>
+                      <PopupMenuEntry<String>>[
+                    const PopupMenuItem<String>(
+                      value: 'edit',
+                      child: Text('Edit'),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'delete',
+                      child: Text('Delete'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
             SizedBox(height: 10.0),
             Text(title,
                 style: TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold)),
@@ -524,21 +599,35 @@ class _PostFeedState extends State<PostFeed> {
         final posts = rustSignal.message.posts;
         return RefreshIndicator(
             onRefresh: _refreshPosts,
-            child: ListView.builder(
-              itemCount: posts.length,
-              itemBuilder: (BuildContext context, int index) {
-                final post = posts[index];
-                final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
-                return Post(
-                  author: post.author,
-                  date: dateFormat.format(DateTime.fromMillisecondsSinceEpoch(
-                          post.createdAt.toInt())
-                      .toLocal()),
-                  title: post.title,
-                  text: post.body,
-                );
-              },
-            ));
+            child: posts.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text("Nothing here yet.."),
+                        OutlinedButton(
+                            onPressed: _refreshPosts, child: Text("Refresh"))
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: posts.length,
+                    itemBuilder: (BuildContext context, int index) {
+                      final post = posts[index];
+                      final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
+                      return Post(
+                        postId: post.postId,
+                        author: post.author,
+                        date: dateFormat.format(
+                            DateTime.fromMillisecondsSinceEpoch(
+                                    post.createdAt.toInt())
+                                .toLocal()),
+                        title: post.title,
+                        text: post.body,
+                        onDelete: _refreshPosts,
+                      );
+                    },
+                  ));
       },
     );
   }
@@ -608,9 +697,11 @@ class _SettingsPageState extends State<SettingsPage> {
                 },
               ),
             ),
-            OutlinedButton(onPressed: () {
-              LogPostsTicket().sendSignalToRust();
-            }, child: Text("Print Profile Ticket"))
+            OutlinedButton(
+                onPressed: () {
+                  LogPostsTicket().sendSignalToRust();
+                },
+                child: Text("Print Profile Ticket"))
           ],
         ),
       ),

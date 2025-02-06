@@ -9,6 +9,7 @@ message Post {
   int64 created_at = 3;
   string author = 4;
   string author_id = 5;
+  string post_id = 6;
 }
 
 // [RUST-SIGNAL]

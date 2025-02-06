@@ -7,6 +7,8 @@ use iroh_docs::rpc::client::docs::Client as _DocsClient;
 
 use iroh_docs::rpc::client::docs::Doc;
 use quic_rpc::transport::flume::FlumeConnector;
+use tracing::Level;
+use tracing_subscriber::FmtSubscriber;
 
 mod app_db;
 mod app_fs;
@@ -32,6 +34,15 @@ pub type SpoutDoc =
 // You can go with any async library, not just `tokio`.
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
+    let subscriber = FmtSubscriber::builder()
+        // all spans/events with a level higher than TRACE (e.g, debug, info, warn, etc.)
+        // will be written to stdout.
+        .with_max_level(Level::INFO)
+        // completes the builder.
+        .finish();
+
+    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
+
     app_fs::init().await.expect("failed to init app filesystem");
 
     let spout_db = app_db().await.expect("Failed to get AppDB");

@@ -1,8 +1,10 @@
 use anyhow::anyhow;
 use base64::Engine;
+use iroh::{NodeAddr, NodeId};
 use iroh_blobs::Hash;
 use iroh_docs::{store::Query, AuthorId, DocTicket};
 
+use rinf::debug_print;
 use serde::{Deserialize, Serialize};
 
 use crate::{BlobsClient, DocsClient, SpoutDoc};
@@ -22,6 +24,7 @@ const PROFILE_KEY: &'static str = "profile";
 
 pub struct Controller {}
 
+#[allow(unused)]
 impl Controller {
     pub async fn load_profile_from_doc(
         doc: SpoutDoc,
@@ -51,9 +54,30 @@ impl Controller {
         author_id: AuthorId,
         profile: &Profile,
     ) -> anyhow::Result<Hash> {
-        Ok(doc
+        let hash = doc
             .set_bytes(author_id, PROFILE_KEY, serde_json::to_vec(profile)?)
-            .await?)
+            .await?;
+
+        match doc.get_sync_peers().await {
+            Ok(Some(peers)) => {
+                let nodes = peers
+                    .iter()
+                    .map(NodeId::from_bytes)
+                    .flatten()
+                    .map(NodeAddr::new)
+                    .collect::<Vec<_>>();
+                let r = doc.start_sync(nodes.clone()).await;
+                debug_print!("Profile sync result={r:?} with peers {:?}", nodes);
+            }
+            Ok(None) => {
+                debug_print!("No peers to sync document with?");
+            }
+            Err(e) => {
+                debug_print!("Couldn't seek profile change with peers {e}");
+            }
+        }
+
+        Ok(hash)
     }
 
     pub async fn create_profile(

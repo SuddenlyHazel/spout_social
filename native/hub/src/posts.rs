@@ -1,12 +1,11 @@
+#![allow(unused)]
+
 use std::time::Duration;
 
 use futures::StreamExt;
 use iroh::{NodeAddr, NodeId};
-use iroh_docs::{
-    rpc::client::docs::ShareMode::{Read},
-    store::Query,
-    NamespaceId,
-};
+use iroh_docs::{rpc::client::docs::ShareMode::Read, store::Query, NamespaceId};
+use rinf::debug_print;
 use sled::Db;
 
 use crate::{
@@ -108,7 +107,9 @@ async fn post_actions_actor(
         let post_id = &action.message.post_id;
         match action.message.action() {
             Delete => {
-                let _ = doc.del(author_id.clone(), post_id.clone()).await;
+                println!("Trying to delete post");
+                let res = doc.del(author_id.clone(), post_id.clone()).await;
+                println!("delete result.. {res:?}");
             }
             Update => todo!(),
         }
@@ -134,7 +135,7 @@ async fn posts_create_actor(
                 .share(Read, iroh_docs::rpc::AddrInfoOptions::Id)
                 .await
                 .expect("Failed to create debug share ticket");
-            println!("{}", ticket.to_string());
+            debug_print!("{}", ticket.to_string());
             println!("{:#?}", ticket);
         }
     });
@@ -161,9 +162,12 @@ async fn posts_create_actor(
         let CreatePostRequest { title, body } = req.message;
         let author = "@place_holder".into();
 
+        let key = format!("post.{}", created_at);
+
         let post = {
             let author_id = author_id.clone().to_string();
             Post {
+                post_id: key.clone(),
                 title,
                 body,
                 created_at,
@@ -172,7 +176,6 @@ async fn posts_create_actor(
             }
         };
 
-        let key = format!("post.{}", created_at);
         println!("Created post {post:?}");
         doc.set_bytes(author_id, key, serde_json::to_vec(&post)?)
             .await?;
