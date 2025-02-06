@@ -44,3 +44,8 @@ flutter run
 For detailed instructions on writing Rust and Flutter together,
 please refer to Rinf's [documentation](https://rinf.cunarist.com).
 
+Code projects can be opened in xcode using the command line like..
+
+```bash
+open ios/Runner.xcworkspace
+```

@@ -1,4 +1,4 @@
-package com.example.sprout_one
+package spout.social.app
 
 import io.flutter.embedding.android.FlutterActivity
 

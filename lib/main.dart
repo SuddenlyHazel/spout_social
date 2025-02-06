@@ -7,7 +7,22 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:rinf/rinf.dart';
+import 'package:workmanager/workmanager.dart';
 import './messages/all.dart';
+
+@pragma(
+    'vm:entry-point') // Mandatory if the App is obfuscated or using Flutter 3.1+
+void callbackDispatcher() {
+  Workmanager().executeTask((task, inputData) async {
+    print(
+        "Native called background task: $task"); //simpleTask will be emitted here.
+
+    LogPostsTicket().sendSignalToRust();
+    print("It looks like this also works");
+
+    return Future.value(true);
+  });
+}
 
 void main() async {
   await initializeRust(assignRustSignal);
@@ -123,7 +138,9 @@ class _CreatePostPageState extends State<CreatePostPage> {
                       hintText: 'Write something wonderful!',
                     ),
                   ),
-                  SizedBox(height: 10.0,),
+                  SizedBox(
+                    height: 10.0,
+                  ),
                   Row(
                     mainAxisSize: MainAxisSize.max,
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -703,7 +720,20 @@ class _SettingsPageState extends State<SettingsPage> {
                 onPressed: () {
                   LogPostsTicket().sendSignalToRust();
                 },
-                child: Text("Print Profile Ticket"))
+                child: Text("Print Profile Ticket")),
+            OutlinedButton(
+              onPressed: () async {
+                await Workmanager().initialize(
+                    callbackDispatcher, // The top level function, aka callbackDispatcher
+                    isInDebugMode:
+                        true // If enabled it will post a notification whenever the task is running. Handy for debugging tasks
+                    );
+                // await Workmanager().registerOneOffTask("spout-social-sync","social.spout.backgroundSync.BackgroundSyncService");
+                await Workmanager().registerPeriodicTask("spout-social-sync",
+                    "social.spout.backgroundSync.BackgroundSyncService");
+              },
+              child: Text("Attempt to register background jobs"),
+            ),
           ],
         ),
       ),

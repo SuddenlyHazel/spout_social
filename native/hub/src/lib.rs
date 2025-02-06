@@ -22,7 +22,7 @@ mod models;
 mod posts;
 mod sample_functions;
 mod tutorial_function;
-
+mod ocean;
 // Uncomment below to target the web.
 // use tokio_with_wasm::alias as tokio;
 
@@ -38,15 +38,6 @@ pub type SpoutDoc =
 // You can go with any async library, not just `tokio`.
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    let subscriber = FmtSubscriber::builder()
-        // all spans/events with a level higher than TRACE (e.g, debug, info, warn, etc.)
-        // will be written to stdout.
-        .with_max_level(Level::INFO)
-        // completes the builder.
-        .finish();
-
-    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
-
     app_fs::init().await.expect("failed to init app filesystem");
     let app_dir = app_data_path().await.expect("failed to get app path");
 

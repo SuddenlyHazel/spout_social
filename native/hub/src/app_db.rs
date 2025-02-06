@@ -17,7 +17,7 @@ pub async fn app_db() -> anyhow::Result<sled::Db> {
     let cfg = sled::Config::default();
 
     let db = cfg
-        .flush_every_ms(Some(100))
+        .flush_every_ms(Some(1000))
         .path(db_path)
         .open()
         .context("Failed to create AppDB. Thats not great..")?;

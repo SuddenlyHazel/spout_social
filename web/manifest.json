@@ -1,6 +1,6 @@
 {
-    "name": "sprout_one",
-    "short_name": "sprout_one",
+    "name": "spout_social",
+    "short_name": "spout_social",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

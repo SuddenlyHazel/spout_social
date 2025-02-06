@@ -1,5 +1,5 @@
-name: sprout_one
-description: "A new Flutter project."
+name: spout_social
+description: "The Queer dWeb"
 publish_to: 'none'
 version: 0.1.0
 
@@ -15,7 +15,11 @@ dependencies:
   fixnum: ^1.1.1
   intl: ^0.20.2
   flutter_launcher_icons: ^0.14.3
-  
+  workmanager:
+    git:
+      url: https://github.com/absar/flutter_workmanager.git
+      ref: ios-bg-tasks-enh-final
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
