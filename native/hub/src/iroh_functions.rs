@@ -3,6 +3,10 @@ use std::{str::FromStr, sync::Arc, time::Duration};
 
 use anyhow::{anyhow, Context};
 use iroh::{protocol::Router, Endpoint, NodeAddr, NodeId, RelayMap, RelayUrl, SecretKey};
+use std::sync::Arc;
+
+use anyhow::{anyhow, Context};
+use iroh::{protocol::Router, Endpoint, NodeAddr, NodeId, SecretKey};
 use iroh_blobs::{net_protocol::Blobs, store::fs::Store, ALPN as BLOBS_ALPN};
 use iroh_docs::{
     protocol::Docs, rpc::client::docs::ShareMode, AuthorId, NamespaceId, ALPN as DOCS_ALPN,
@@ -159,7 +163,7 @@ pub async fn profile_signals(
     };
 
     let ticket = doc
-        .share(ShareMode::Read, iroh_docs::rpc::AddrInfoOptions::Relay)
+        .share(ShareMode::Read, iroh_docs::rpc::AddrInfoOptions::Id)
         .await?
         .to_string();
 
