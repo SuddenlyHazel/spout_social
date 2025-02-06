@@ -3,10 +3,7 @@ use std::{str::FromStr, sync::Arc, time::Duration};
 
 use anyhow::{anyhow, Context};
 use iroh::{protocol::Router, Endpoint, NodeAddr, NodeId, RelayMap, RelayUrl, SecretKey};
-use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
-use iroh::{protocol::Router, Endpoint, NodeAddr, NodeId, SecretKey};
 use iroh_blobs::{net_protocol::Blobs, store::fs::Store, ALPN as BLOBS_ALPN};
 use iroh_docs::{
     protocol::Docs, rpc::client::docs::ShareMode, AuthorId, NamespaceId, ALPN as DOCS_ALPN,
@@ -61,7 +58,7 @@ pub async fn launch_iroh(app_db: Db) -> anyhow::Result<()> {
 
     // We initialize the Blobs protocol in-memory
     let blobs = Blobs::persistent(data_dir.clone()).await?.build(&endpoint);
-    
+
     debug_print!("addr is.. {:?}", endpoint.node_addr().await);
 
     let builder = Router::builder(endpoint);
@@ -155,7 +152,7 @@ pub async fn profile_signals(
             debug_print!("Storing newly created document for l8tr");
             app_db
                 .insert(PROFILE_DOC_KEY, serde_json::to_vec(&doc.id())?)
-                .context("Failed to store new profile document id in app_db")?;
+                .context("Failed to store profile_doc id in db")?;
             debug_print!("store profile key flush {:?}", app_db.flush());
 
             (profile, doc)
