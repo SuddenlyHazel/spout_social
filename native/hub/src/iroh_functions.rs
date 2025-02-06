@@ -1,17 +1,17 @@
+#![allow(unused)]
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
-use iroh::{protocol::Router, Endpoint, SecretKey};
-use iroh_blobs::{
-    net_protocol::Blobs, store::fs::Store, ALPN as BLOBS_ALPN,
-};
+use iroh::{protocol::Router, Endpoint, NodeAddr, NodeId, SecretKey};
+use iroh_blobs::{net_protocol::Blobs, store::fs::Store, ALPN as BLOBS_ALPN};
 use iroh_docs::{
-    protocol::Docs, AuthorId, NamespaceId,
-    ALPN as DOCS_ALPN,
+    protocol::Docs, rpc::client::docs::ShareMode, AuthorId, NamespaceId, ALPN as DOCS_ALPN,
 };
 use iroh_gossip::{net::Gossip, ALPN as GOSSIP_ALPN};
+use rinf::debug_print;
 use sled::Db;
 use tokio::sync::{mpsc::Sender, Mutex};
+use tracing::info;
 
 use crate::{
     app_fs,
@@ -135,6 +135,13 @@ pub async fn profile_signals(
         (profile, doc)
     };
 
+    let ticket = doc
+        .share(ShareMode::Read, iroh_docs::rpc::AddrInfoOptions::Id)
+        .await?
+        .to_string();
+
+    debug_print!("profile ticket created {ticket}");
+
     let profile =
         models::profile::Controller::load_profile_from_doc(doc.clone(), blobs.client()).await?;
 
@@ -195,6 +202,15 @@ async fn profile_update_actor(
 ) {
     let listener = UpdateUserProfile::get_dart_signal_receiver();
 
+    if let Ok(Some(peers)) = doc.get_sync_peers().await {
+        let nodes = peers
+            .iter()
+            .map(NodeId::from_bytes)
+            .flatten()
+            .map(NodeAddr::new)
+            .collect::<Vec<_>>();
+        doc.start_sync(nodes).await;
+    }
     while let Some(update_request) = listener.recv().await {
         let req = update_request.message;
         let mut locked = profile.lock().await;
