@@ -2,12 +2,16 @@
 //! entry point of the Rust logic.
 
 use app_db::app_db;
+use app_fs::app_data_path;
+use chrono::DateTime;
 use iroh_blobs::rpc::client::blobs::Client as _BlobsClient;
 use iroh_docs::rpc::client::docs::Client as _DocsClient;
 
 use iroh_docs::rpc::client::docs::Doc;
 use quic_rpc::transport::flume::FlumeConnector;
+use std::fs::File;
 use tracing::Level;
+use tracing_subscriber::fmt::writer::BoxMakeWriter;
 use tracing_subscriber::FmtSubscriber;
 
 mod app_db;
@@ -44,8 +48,28 @@ async fn main() {
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
     app_fs::init().await.expect("failed to init app filesystem");
+    let app_dir = app_data_path().await.expect("failed to get app path");
+
+    let path = format!("{}-app.log", chrono::Utc::now().timestamp_millis());
+    let path = app_dir.join(path);
+
+    rinf::debug_print!("path {:?}", path.canonicalize());
+    let file = File::create(path).expect("Failed to create log file");
+
+    let (non_blocking, _guard) = tracing_appender::non_blocking(file);
+    let file_writer = BoxMakeWriter::new(non_blocking);
+    let subscriber = FmtSubscriber::builder()
+        // all spans/events with a level higher than TRACE (e.g, debug, info, warn, etc.)
+        // will be written to stdout.
+        .with_max_level(Level::INFO)
+        .with_writer(file_writer)
+        // completes the builder.
+        .finish();
+
+    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
     let spout_db = app_db().await.expect("Failed to get AppDB");
+
     // Spawn concurrent tasks.
     // Always use non-blocking async functions like `tokio::fs::File::open`.
     // If you must use blocking code, use `tokio::task::spawn_blocking`

@@ -44,6 +44,8 @@ pub async fn start_actors(
                 serde_json::to_vec(&doc.id()).expect("Failed to serialize documentId"),
             )
             .expect("Failed to write posts id to app_db");
+        debug_print!("store posts key flush {:?}", app_db.flush());
+
         doc
     };
 

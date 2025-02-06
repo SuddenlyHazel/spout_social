@@ -5,7 +5,7 @@ use rinf::debug_print;
 
 pub async fn init() -> anyhow::Result<()> {
     let app_directories =
-        ProjectDirs::from("social", "spout", "app").expect("failed to load project_dirs");
+        ProjectDirs::from("com", "example", "sproutOne").expect("failed to load project_dirs");
 
     let data_dir = app_directories.data_dir();
     debug_print!("Data dir {:?}", data_dir.canonicalize());
@@ -17,7 +17,7 @@ pub async fn init() -> anyhow::Result<()> {
 }
 
 pub async fn app_data_path() -> anyhow::Result<PathBuf> {
-    let app_directories = ProjectDirs::from("social", "spout", "app").unwrap();
+    let app_directories = ProjectDirs::from("com", "example", "sproutOne").unwrap();
 
     let data_dir = app_directories.data_dir().to_owned();
     Ok(data_dir)

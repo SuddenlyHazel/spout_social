@@ -83,62 +83,62 @@ class _CreatePostPageState extends State<CreatePostPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(),
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
-        mainAxisSize: MainAxisSize.max,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              spacing: 5.0,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      "Whatcha thinking about?",
-                      style: TextStyle(fontSize: 23.0),
-                      textAlign: TextAlign.left,
-                    ),
-                  ],
-                ),
-                TextField(
-                  controller: _titleTextController,
-                  maxLines: 1,
-                  autocorrect: true,
-                  keyboardType: TextInputType.multiline,
-                  decoration: InputDecoration(
-                    border: OutlineInputBorder(),
-                    hintText: 'Post Title',
-                  ),
-                ),
-                TextField(
-                  controller: _bodyTextController,
-                  maxLines: null,
-                  minLines: 4,
-                  autocorrect: true,
-                  keyboardType: TextInputType.multiline,
-                  decoration: InputDecoration(
-                    border: OutlineInputBorder(),
-                    hintText: 'Write something wonderful!',
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: BottomAppBar(
-        shape: CircularNotchedRectangle(),
-        child: Row(
+      body: SingleChildScrollView(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
           mainAxisSize: MainAxisSize.max,
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(200, 50),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                spacing: 5.0,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        "Whatcha thinking about?",
+                        style: TextStyle(fontSize: 23.0),
+                        textAlign: TextAlign.left,
+                      ),
+                    ],
+                  ),
+                  TextField(
+                    controller: _titleTextController,
+                    maxLines: 1,
+                    autocorrect: true,
+                    keyboardType: TextInputType.multiline,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(),
+                      hintText: 'Post Title',
+                    ),
+                  ),
+                  TextField(
+                    controller: _bodyTextController,
+                    maxLines: null,
+                    minLines: 4,
+                    autocorrect: true,
+                    keyboardType: TextInputType.multiline,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(),
+                      hintText: 'Write something wonderful!',
+                    ),
+                  ),
+                  SizedBox(height: 10.0,),
+                  Row(
+                    mainAxisSize: MainAxisSize.max,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(200, 50),
+                        ),
+                        onPressed: _createPost,
+                        child: Icon(Icons.send),
+                      ),
+                    ],
+                  )
+                ],
               ),
-              onPressed: _createPost,
-              child: Icon(Icons.send),
             ),
           ],
         ),
@@ -482,75 +482,77 @@ class _EditProfilePageState extends State<EditProfilePage> {
     return Scaffold(
       appBar: AppBar(),
       body: Center(
-        child: Padding(
-          padding: EdgeInsets.all(10.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              GestureDetector(
-                onTap: _pickImage,
-                child: CircleAvatar(
-                  radius: 50,
-                  backgroundImage: _getImageProvider(),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.all(10.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                GestureDetector(
+                  onTap: _pickImage,
+                  child: CircleAvatar(
+                    radius: 50,
+                    backgroundImage: _getImageProvider(),
+                  ),
                 ),
-              ),
-              SizedBox(height: 20),
-              TextField(
-                decoration: InputDecoration(
-                  labelText: "Name",
-                  border: OutlineInputBorder(),
+                SizedBox(height: 20),
+                TextField(
+                  decoration: InputDecoration(
+                    labelText: "Name",
+                    border: OutlineInputBorder(),
+                  ),
+                  controller: _usernameController,
                 ),
-                controller: _usernameController,
-              ),
-              SizedBox(height: 20),
-              TextField(
-                decoration: InputDecoration(
-                  labelText: "Handle",
-                  border: OutlineInputBorder(),
+                SizedBox(height: 20),
+                TextField(
+                  decoration: InputDecoration(
+                    labelText: "Handle",
+                    border: OutlineInputBorder(),
+                  ),
+                  controller: _handleController,
                 ),
-                controller: _handleController,
-              ),
-              SizedBox(height: 20),
-              TextField(
-                decoration: InputDecoration(
-                  labelText: "Bio",
-                  border: OutlineInputBorder(),
+                SizedBox(height: 20),
+                TextField(
+                  decoration: InputDecoration(
+                    labelText: "Bio",
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 3,
+                  controller: _bioController,
                 ),
-                maxLines: 3,
-                controller: _bioController,
-              ),
-              SizedBox(height: 20),
-              TextField(
-                decoration: InputDecoration(
-                  labelText: "Location",
-                  border: OutlineInputBorder(),
+                SizedBox(height: 20),
+                TextField(
+                  decoration: InputDecoration(
+                    labelText: "Location",
+                    border: OutlineInputBorder(),
+                  ),
+                  controller: _locationController,
                 ),
-                controller: _locationController,
-              ),
-              SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () async {
-                  // You can now use these values to update the profile or send them to the server
-                  String updatedUsername = _usernameController.text;
-                  String updatedHandle = _handleController.text;
-                  String updatedBio = _bioController.text;
-                  String updatedLocation = _locationController.text;
-                  UpdateUserProfile(
-                          name: updatedUsername,
-                          handle: updatedHandle,
-                          bio: updatedBio,
-                          location: updatedLocation,
-                          profileImage: _profileImageUrl)
-                      .sendSignalToRust();
-                  // Add an artifical delay cause its kinda jarring how quickly it pops back over
-                  // weird right?
-                  await Future.delayed(const Duration(milliseconds: 100));
-                  Navigator.pop(context);
-                  // Handle save action
-                },
-                child: Text("Save"),
-              ),
-            ],
+                SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () async {
+                    // You can now use these values to update the profile or send them to the server
+                    String updatedUsername = _usernameController.text;
+                    String updatedHandle = _handleController.text;
+                    String updatedBio = _bioController.text;
+                    String updatedLocation = _locationController.text;
+                    UpdateUserProfile(
+                            name: updatedUsername,
+                            handle: updatedHandle,
+                            bio: updatedBio,
+                            location: updatedLocation,
+                            profileImage: _profileImageUrl)
+                        .sendSignalToRust();
+                    // Add an artifical delay cause its kinda jarring how quickly it pops back over
+                    // weird right?
+                    await Future.delayed(const Duration(milliseconds: 100));
+                    Navigator.pop(context);
+                    // Handle save action
+                  },
+                  child: Text("Save"),
+                ),
+              ],
+            ),
           ),
         ),
       ),
