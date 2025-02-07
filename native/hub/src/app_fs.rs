@@ -9,7 +9,7 @@ pub async fn init() -> anyhow::Result<()> {
 
     let data_dir = app_directories.data_dir();
     debug_print!("Data dir {:?}", data_dir.canonicalize());
-    
+
     if !data_dir.exists() {
         tokio::fs::create_dir_all(data_dir).await?;
     }

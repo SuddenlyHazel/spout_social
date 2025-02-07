@@ -36,7 +36,7 @@ impl Controller {
         }
         Err(anyhow!("Profile entry was not found in document"))
     }
-    
+
     pub async fn load_profile_from_ticket(
         docs_client: &DocsClient,
         blobs_client: &BlobsClient,

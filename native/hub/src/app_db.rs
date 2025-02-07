@@ -5,8 +5,6 @@ use crate::app_fs;
 
 pub struct AppDb(sled::Db);
 
-
-
 pub async fn app_db() -> anyhow::Result<sled::Db> {
     let data_dir = app_fs::app_data_path().await?;
     let db_path = data_dir.join("spout.db");

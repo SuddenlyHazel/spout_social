@@ -83,7 +83,7 @@ pub async fn init(gossip: Gossip, docs: DocsClient, app_db: Db) -> anyhow::Resul
     let topic_bytes = blake3::hash(OCEAN_GOSSIP_TOPIC.as_bytes());
     debug_print!("topic_id {}", topic_bytes.to_hex());
 
-    let (mut gossip_topic_tx, mut gossip_topic_rx) = gossip
+    let (gossip_topic_tx, mut gossip_topic_rx) = gossip
         .subscribe_and_join(
             TopicId::from_bytes(topic_bytes.into()),
             vec![
@@ -99,7 +99,7 @@ pub async fn init(gossip: Gossip, docs: DocsClient, app_db: Db) -> anyhow::Resul
 
     debug_print!("ocean gossip topic joined");
     tokio::task::spawn(async move {
-        let mut tx = gossip_topic_tx;
+        let tx = gossip_topic_tx;
         let mut timer = tokio::time::interval(Duration::from_secs(10));
 
         let mut counter = 0;
