@@ -1,5 +1,5 @@
 use anyhow::anyhow;
-use base64::Engine;
+use bytes::Bytes;
 use iroh::{NodeAddr, NodeId};
 use iroh_blobs::Hash;
 use iroh_docs::{store::Query, AuthorId, DocTicket};
@@ -17,7 +17,7 @@ pub struct Profile {
     pub handle: String,
     pub bio: String,
     pub location: String,
-    pub profile_image: String,
+    pub profile_image: bytes::Bytes,
 }
 
 const PROFILE_KEY: &'static str = "profile";
@@ -36,6 +36,7 @@ impl Controller {
         }
         Err(anyhow!("Profile entry was not found in document"))
     }
+    
     pub async fn load_profile_from_ticket(
         docs_client: &DocsClient,
         blobs_client: &BlobsClient,
@@ -88,7 +89,7 @@ impl Controller {
         bio: String,
         location: String,
     ) -> anyhow::Result<(Profile, SpoutDoc)> {
-        let profile_image = base64::engine::general_purpose::URL_SAFE.encode(PERSON_PLACEHOLDER);
+        let profile_image = Bytes::from_static(PERSON_PLACEHOLDER);
 
         let new_doc = docs_client.create().await?;
 

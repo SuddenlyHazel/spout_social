@@ -451,6 +451,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6099cdc01846bc367c4e7dd630dc5966dccf36b652fae7a74e17b640411a91b2"
 
 [[package]]
+name = "blake3"
+version = "1.5.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8ee0c1824c4dea5b5f81736aff91bae041d2c07ee1192bec91054e10e3e601e"
+dependencies = [
+ "arrayref",
+ "arrayvec",
+ "cc",
+ "cfg-if",
+ "constant_time_eq",
+]
+
+[[package]]
 name = "block-buffer"
 version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1823,15 +1836,19 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "base64",
+ "blake3",
+ "bytes",
  "chrono",
  "directories",
  "futures",
+ "futures-lite",
  "image",
  "iroh",
  "iroh-base",
  "iroh-blobs",
  "iroh-docs",
  "iroh-gossip",
+ "n0-future",
  "prost",
  "quic-rpc 0.18.1",
  "rand",

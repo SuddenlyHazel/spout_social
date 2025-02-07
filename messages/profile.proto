@@ -11,7 +11,7 @@ message UpdateUserProfile {
   string handle = 2;
   string bio = 3;
   string location = 4;
-  string profile_image = 5;
+  bytes profile_image = 5;
 }
 
 // [RUST-SIGNAL]
@@ -20,7 +20,7 @@ message ProfileSignal {
   string handle = 2;
   string bio = 3;
   string location = 4;
-  string profile_image = 5;
+  bytes profile_image = 5;
 }
 
 

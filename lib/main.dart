@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:fixnum/fixnum.dart';
 import 'package:flutter/material.dart';
@@ -307,8 +308,7 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  String profileImageUrl =
-      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=3540&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D";
+  List<int> profileImageUrl = List.empty();
   String username = "Username";
   String handle = "@handle";
   String bio = "Bio";
@@ -321,14 +321,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   ImageProvider _getImageProvider(profileImageUrl) {
-    if (profileImageUrl.startsWith('http')) {
-      return NetworkImage(profileImageUrl);
-    } else if (profileImageUrl.startsWith('/')) {
-      return FileImage(File(profileImageUrl));
-    } else {
-      final bytes = base64Decode(profileImageUrl);
-      return MemoryImage(bytes);
-    }
+    return MemoryImage(profileImageUrl);
   }
 
   @override
@@ -425,7 +418,7 @@ class _ProfilePageState extends State<ProfilePage> {
 }
 
 class EditProfilePage extends StatefulWidget {
-  final String profileImageUrl;
+  final List<int> profileImageUrl;
   final String username;
   final String handle;
   final String bio;
@@ -445,7 +438,7 @@ class EditProfilePage extends StatefulWidget {
 }
 
 class _EditProfilePageState extends State<EditProfilePage> {
-  late String _profileImageUrl;
+  late List<int> _profileImageUrl;
   final ImagePicker _picker = ImagePicker();
 
   late TextEditingController _usernameController;
@@ -467,22 +460,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image != null) {
       final bytes = await File(image.path).readAsBytes();
-      final base64String = base64Encode(bytes);
       setState(() {
-        _profileImageUrl = base64String;
+        _profileImageUrl = bytes;
       });
     }
   }
 
   ImageProvider _getImageProvider() {
-    if (_profileImageUrl.startsWith('http')) {
-      return NetworkImage(_profileImageUrl);
-    } else if (_profileImageUrl.startsWith('/')) {
-      return FileImage(File(_profileImageUrl));
-    } else {
-      final bytes = base64Decode(_profileImageUrl);
-      return MemoryImage(bytes);
-    }
+    return MemoryImage(Uint8List.fromList(_profileImageUrl));
   }
 
   @override

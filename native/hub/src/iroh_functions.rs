@@ -6,7 +6,8 @@ use iroh::{protocol::Router, Endpoint, NodeAddr, NodeId, RelayMap, RelayUrl, Sec
 
 use iroh_blobs::{net_protocol::Blobs, store::fs::Store, ALPN as BLOBS_ALPN};
 use iroh_docs::{
-    protocol::Docs, rpc::client::docs::ShareMode, AuthorId, NamespaceId, ALPN as DOCS_ALPN,
+    protocol::Docs, rpc::client::docs::ShareMode, store::Query, AuthorId, NamespaceId,
+    ALPN as DOCS_ALPN,
 };
 use iroh_gossip::{net::Gossip, ALPN as GOSSIP_ALPN};
 use rinf::debug_print;
@@ -21,6 +22,7 @@ use crate::{
         self,
         profile::{Controller, Profile},
     },
+    ocean::{self},
     posts, SpoutDoc,
 };
 
@@ -61,10 +63,11 @@ pub async fn launch_iroh(app_db: Db) -> anyhow::Result<()> {
 
     debug_print!("addr is.. {:?}", endpoint.node_addr().await);
 
-    let builder = Router::builder(endpoint);
+    let builder = Router::builder(endpoint.clone());
 
     // build the gossip protocol
     let gossip = Gossip::builder().spawn(builder.endpoint().clone()).await?;
+
     debug_print!("build the gossip protocol");
 
     // build the docs protocol
@@ -90,11 +93,16 @@ pub async fn launch_iroh(app_db: Db) -> anyhow::Result<()> {
 
     let router = builder
         .accept(BLOBS_ALPN, blobs.clone())
-        .accept(GOSSIP_ALPN, gossip)
+        .accept(GOSSIP_ALPN, gossip.clone())
         .accept(DOCS_ALPN, docs.clone())
         .spawn()
         .await?;
 
+    let _ = tokio::task::spawn(ocean::init(
+        gossip.clone(),
+        docs.client().to_owned(),
+        app_db.clone(),
+    ));
     let _ = tokio::task::spawn(profile_signals(
         docs.clone(),
         blobs.clone(),
@@ -107,10 +115,16 @@ pub async fn launch_iroh(app_db: Db) -> anyhow::Result<()> {
         timer.tick().await;
 
         rinf::debug_print!(
-            "is_shutdown {} endpoint.is_closed {} endpoint.remote_info {:?}",
+            "is_shutdown {} endpoint.is_closed {} endpoint.remote_info {} node_id {}",
             router.is_shutdown(),
             router.endpoint().is_closed(),
-            router.endpoint().remote_info_iter().collect::<Vec<_>>()
+            router
+                .endpoint()
+                .remote_info_iter()
+                .map(|v| v.node_id.to_string())
+                .collect::<Vec<_>>()
+                .join(","),
+            endpoint.node_id()
         );
     }
 
@@ -189,7 +203,7 @@ pub async fn profile_signals(
                 handle: locked.handle.clone(),
                 bio: locked.bio.clone(),
                 location: locked.location.clone(),
-                profile_image: locked.profile_image.clone(),
+                profile_image: locked.profile_image.clone().to_vec(),
             }
             .send_signal_to_dart();
             drop(locked);
@@ -207,7 +221,7 @@ pub async fn profile_signals(
             handle: locked.handle.clone(),
             bio: locked.bio.clone(),
             location: locked.location.clone(),
-            profile_image: locked.profile_image.clone(),
+            profile_image: locked.profile_image.clone().to_vec(),
         }
         .send_signal_to_dart();
         drop(locked);
@@ -242,7 +256,7 @@ async fn profile_update_actor(
         locked.bio = req.bio;
         locked.handle = req.handle;
         locked.location = req.location;
-        locked.profile_image = req.profile_image;
+        locked.profile_image = req.profile_image.into();
 
         Controller::write_profile(&doc, author_id, &locked)
             .await

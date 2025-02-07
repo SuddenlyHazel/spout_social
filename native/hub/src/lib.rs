@@ -3,7 +3,6 @@
 
 use app_db::app_db;
 use app_fs::app_data_path;
-use chrono::DateTime;
 use iroh_blobs::rpc::client::blobs::Client as _BlobsClient;
 use iroh_docs::rpc::client::docs::Client as _DocsClient;
 
@@ -57,7 +56,7 @@ async fn main() {
         // completes the builder.
         .finish();
 
-    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
+    let _ = tracing::subscriber::set_global_default(subscriber);
 
     let spout_db = app_db().await.expect("Failed to get AppDB");
 
