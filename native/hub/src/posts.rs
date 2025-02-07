@@ -48,7 +48,6 @@ pub async fn start_actors(
 
         doc
     };
-
     tokio::task::spawn(posts_create_actor(app_db.clone(), doc.clone(), author_id));
     tokio::task::spawn(posts_query_actor(
         app_db.clone(),
@@ -58,6 +57,7 @@ pub async fn start_actors(
     ));
     tokio::task::spawn(post_actions_actor(app_db.clone(), doc.clone(), author_id));
 }
+
 async fn posts_query_actor(
     app_db: Db,
     doc: SpoutDoc,

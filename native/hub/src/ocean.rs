@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{str::FromStr, time::Duration};
 
 use bytes::Bytes;
 use futures::StreamExt;
@@ -9,7 +9,6 @@ use iroh_gossip::{
     net::{Gossip, GossipEvent},
     proto::TopicId,
 };
-use rinf::debug_print;
 use serde::{Deserialize, Serialize};
 use sled::Db;
 use tracing::{info, warn};
@@ -80,29 +79,22 @@ pub async fn init(
     app_db: Db,
     node_key: SecretKey,
 ) -> anyhow::Result<()> {
-    info!("attempting to join ocean gossip topic");
+    tracing::info!("attempting to join ocean gossip topic");
 
     let _oceans_doc = get_or_create_oceans_doc(&docs, &app_db).await?;
-    info!("successfully opened oceans doc");
+    tracing::info!("successfully opened oceans doc");
 
     let topic_bytes = blake3::hash(OCEAN_GOSSIP_TOPIC.as_bytes());
-    debug_print!("topic_id {}", topic_bytes.to_hex());
+    tracing::info!("topic_id {}", topic_bytes.to_hex());
+
+    let bootstrap_peers = get_peers_for_bootstrap(&app_db)?;
 
     let (gossip_topic_tx, mut gossip_topic_rx) = gossip
-        .subscribe_and_join(
-            TopicId::from_bytes(topic_bytes.into()),
-            vec![
-                // This is hazels macos node_id
-                // PublicKey::from_str(
-                //     "dab078205e0e8153862f9b8d2d612c305ae01f7391605d69c1338e90ba7bc661",
-                // )
-                // .expect("failed"),
-            ],
-        )
+        .subscribe_and_join(TopicId::from_bytes(topic_bytes.into()), bootstrap_peers)
         .await?
         .split();
 
-    debug_print!("ocean gossip topic joined");
+    tracing::info!("ocean gossip topic joined");
 
     let _node_key = node_key.clone();
 
@@ -119,30 +111,90 @@ pub async fn init(
             )
             .expect("failed to construct ping message");
             timer.tick().await;
-            let r = tx.broadcast(envelope_bytes).await;
-            debug_print!("gossip send {r:?}");
+            let r = tx.broadcast_neighbors(envelope_bytes).await;
+            tracing::info!("gossip send {r:?}");
             counter += 1;
         }
     });
 
-    debug_print!("Here?");
     while let Some(Ok(event)) = gossip_topic_rx.next().await {
-        debug_print!("inside receiver loop?");
+        tracing::info!("inside receiver loop?");
         match event {
             iroh_gossip::net::Event::Gossip(GossipEvent::Received(message)) => {
                 if let Ok((signer, msg)) = OceanMessageEnvelope::verify_and_open(&message.content) {
-                    debug_print!("received ocean_message from {signer} content {msg:#?}");
+                    tracing::info!("received ocean_message from {signer} content {msg:#?}");
                 }
             }
             iroh_gossip::net::Event::Lagged => {
-                debug_print!("ocean gossip receiver is lagging");
+                tracing::info!("ocean gossip receiver is lagging");
+            }
+            iroh_gossip::net::Event::Gossip(GossipEvent::NeighborUp(key)) => {
+                if let Err(e) = store_discovered_peer(&app_db, &key).await {
+                    warn!(?e, warning = "failed to store ocean peer");
+                }
             }
             other => {
-                debug_print!("other gossip event {other:#?}");
+                tracing::info!("other gossip event {other:#?}");
             }
         }
     }
 
-    debug_print!("ocean gossip topic down");
+    tracing::info!("ocean gossip topic down");
+    Ok(())
+}
+
+#[derive(Serialize, Deserialize)]
+struct OceanPeer {
+    discovered_at: i64,
+    last_seen_at: i64,
+}
+
+fn get_peers_for_bootstrap(app_db: &Db) -> anyhow::Result<Vec<PublicKey>> {
+    let key_str = format!("ocean_peer.discovered");
+
+    let mut scan = app_db.scan_prefix(key_str);
+
+    let mut results = vec![];
+    while let Some(Ok((key, _))) = scan.next() {
+        let key = String::from_utf8(key.to_vec())?;
+        let key = key.split(".").collect::<Vec<_>>();
+        if let Some(pubkey) = key.get(2) {
+            let Ok(pubkey) = PublicKey::from_str(*pubkey) else {
+                continue;
+            };
+
+            results.push(pubkey);
+        }
+        // TODO we should really _not_ just use all the previously discovered nodes here
+    }
+
+    Ok(results)
+}
+
+fn lookup_discovered_peer(app_db: &Db, key: &PublicKey) -> anyhow::Result<Option<OceanPeer>> {
+    let key_str = format!("ocean_peer.discovered.{}", key);
+    if let Some(peer) = app_db.get(key_str)? {
+        return Ok(serde_json::from_slice(&peer)?);
+    }
+    Ok(None)
+}
+
+async fn store_discovered_peer(app_db: &Db, key: &PublicKey) -> anyhow::Result<()> {
+    let now = chrono::Utc::now().timestamp_millis();
+
+    let key_str = format!("ocean_peer.discovered.{}", key);
+
+    let ocean_peer = if let Ok(Some(mut ocean_peer)) = lookup_discovered_peer(app_db, key) {
+        ocean_peer.last_seen_at = now;
+        ocean_peer
+    } else {
+        OceanPeer {
+            discovered_at: now,
+            last_seen_at: now,
+        }
+    };
+
+    app_db.insert(key_str.as_bytes(), serde_json::to_vec(&ocean_peer)?)?;
+    app_db.flush_async().await?;
     Ok(())
 }

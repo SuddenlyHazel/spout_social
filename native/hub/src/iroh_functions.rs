@@ -45,7 +45,7 @@ pub async fn launch_iroh(app_db: Db) -> anyhow::Result<()> {
         app_db
             .insert(SECRET_KEY, serde_json::to_vec(&secret_key)?)
             .context("Failed to store secret. Cannot continue")?;
-        debug_print!("perist key flush {:?}", app_db.flush());
+        tracing::info!("perist key flush {:?}", app_db.flush());
         secret_key
     };
 
@@ -61,14 +61,14 @@ pub async fn launch_iroh(app_db: Db) -> anyhow::Result<()> {
     // We initialize the Blobs protocol in-memory
     let blobs = Blobs::persistent(data_dir.clone()).await?.build(&endpoint);
 
-    debug_print!("addr is.. {:?}", endpoint.node_addr().await);
+    tracing::info!("addr is.. {:?}", endpoint.node_addr().await);
 
     let builder = Router::builder(endpoint.clone());
 
     // build the gossip protocol
     let gossip = Gossip::builder().spawn(builder.endpoint().clone()).await?;
 
-    debug_print!("build the gossip protocol");
+    tracing::info!("build the gossip protocol");
 
     // build the docs protocol
     let docs = Docs::persistent(data_dir.clone())
@@ -80,10 +80,11 @@ pub async fn launch_iroh(app_db: Db) -> anyhow::Result<()> {
         Err(_) => docs.client().authors().create().await?,
     };
 
-    debug_print!("AuthorId {:?}", author);
+    tracing::info!("AuthorId {:?}", author);
 
-    debug_print!("build the docs protocol");
+    tracing::info!("build the docs protocol");
 
+    #[cfg(not(feature = "headless"))]
     tokio::spawn(posts::start_actors(
         app_db.clone(),
         docs.client().to_owned(),
@@ -104,6 +105,8 @@ pub async fn launch_iroh(app_db: Db) -> anyhow::Result<()> {
         app_db.clone(),
         secret_key
     ));
+
+    #[cfg(not(feature = "headless"))]
     let _ = tokio::task::spawn(profile_signals(
         docs.clone(),
         blobs.clone(),
@@ -115,7 +118,7 @@ pub async fn launch_iroh(app_db: Db) -> anyhow::Result<()> {
     loop {
         timer.tick().await;
 
-        rinf::debug_print!(
+        tracing::info!(
             "is_shutdown {} endpoint.is_closed {} endpoint.remote_info {} node_id {}",
             router.is_shutdown(),
             router.endpoint().is_closed(),
