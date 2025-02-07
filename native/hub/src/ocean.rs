@@ -19,12 +19,12 @@ use crate::{DocsClient, SpoutDoc};
 const OCEAN_GOSSIP_TOPIC: &'static str = "social.spout.app.v0.1.0.ocean.gossip";
 const OCEAN_DOC_KEY: &'static str = "social.spout.app.v0.1.0.ocean.doc";
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum OceanMessage {
-    Ping,
+    Ping { nonce: u64 },
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct OceanMessageEnvelope {
     from: PublicKey,
     data: Bytes,
@@ -74,10 +74,15 @@ async fn get_or_create_oceans_doc(docs: &DocsClient, app_db: &Db) -> anyhow::Res
     }
 }
 
-pub async fn init(gossip: Gossip, docs: DocsClient, app_db: Db) -> anyhow::Result<()> {
+pub async fn init(
+    gossip: Gossip,
+    docs: DocsClient,
+    app_db: Db,
+    node_key: SecretKey,
+) -> anyhow::Result<()> {
     info!("attempting to join ocean gossip topic");
 
-    let oceans_doc = get_or_create_oceans_doc(&docs, &app_db).await?;
+    let _oceans_doc = get_or_create_oceans_doc(&docs, &app_db).await?;
     info!("successfully opened oceans doc");
 
     let topic_bytes = blake3::hash(OCEAN_GOSSIP_TOPIC.as_bytes());
@@ -98,16 +103,23 @@ pub async fn init(gossip: Gossip, docs: DocsClient, app_db: Db) -> anyhow::Resul
         .split();
 
     debug_print!("ocean gossip topic joined");
+
+    let _node_key = node_key.clone();
+
     tokio::task::spawn(async move {
+        let node_key = _node_key;
         let tx = gossip_topic_tx;
-        let mut timer = tokio::time::interval(Duration::from_secs(10));
+        let mut timer = tokio::time::interval(Duration::from_secs(30));
 
         let mut counter = 0;
         loop {
+            let envelope_bytes = OceanMessageEnvelope::sign_and_seal(
+                &node_key,
+                &OceanMessage::Ping { nonce: counter },
+            )
+            .expect("failed to construct ping message");
             timer.tick().await;
-            let r = tx
-                .broadcast(format!("Hello, World! {counter}").into())
-                .await;
+            let r = tx.broadcast(envelope_bytes).await;
             debug_print!("gossip send {r:?}");
             counter += 1;
         }
@@ -118,7 +130,9 @@ pub async fn init(gossip: Gossip, docs: DocsClient, app_db: Db) -> anyhow::Resul
         debug_print!("inside receiver loop?");
         match event {
             iroh_gossip::net::Event::Gossip(GossipEvent::Received(message)) => {
-                debug_print!("got some gossip {message:?}");
+                if let Ok((signer, msg)) = OceanMessageEnvelope::verify_and_open(&message.content) {
+                    debug_print!("received ocean_message from {signer} content {msg:#?}");
+                }
             }
             iroh_gossip::net::Event::Lagged => {
                 debug_print!("ocean gossip receiver is lagging");

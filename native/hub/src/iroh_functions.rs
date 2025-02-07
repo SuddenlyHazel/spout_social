@@ -50,7 +50,7 @@ pub async fn launch_iroh(app_db: Db) -> anyhow::Result<()> {
     };
 
     let endpoint = Endpoint::builder()
-        .secret_key(secret_key)
+        .secret_key(secret_key.clone())
         .discovery_n0()
         .relay_mode(iroh::RelayMode::Custom(RelayMap::from_url(
             RelayUrl::from_str("https://aps1-1.relay.iroh.network").unwrap(),
@@ -102,6 +102,7 @@ pub async fn launch_iroh(app_db: Db) -> anyhow::Result<()> {
         gossip.clone(),
         docs.client().to_owned(),
         app_db.clone(),
+        secret_key
     ));
     let _ = tokio::task::spawn(profile_signals(
         docs.clone(),
