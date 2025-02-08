@@ -2,7 +2,7 @@
 use std::{str::FromStr, sync::Arc, time::Duration};
 
 use anyhow::{anyhow, Context};
-use iroh::{protocol::Router, Endpoint, NodeAddr, NodeId, RelayMap, RelayUrl, SecretKey};
+use iroh::{endpoint, protocol::Router, Endpoint, NodeAddr, NodeId, RelayMap, RelayUrl, SecretKey};
 
 use iroh_blobs::{net_protocol::Blobs, store::fs::Store, ALPN as BLOBS_ALPN};
 use iroh_docs::{
@@ -16,14 +16,10 @@ use tokio::sync::{mpsc::Sender, Mutex};
 use tracing::info;
 
 use crate::{
-    app_fs,
-    messages::{ProfileSignal, RequestUserProfile, UpdateUserProfile},
-    models::{
+    app_fs, messages::{ProfileSignal, RequestUserProfile, UpdateUserProfile}, models::{
         self,
         profile::{Controller, Profile},
-    },
-    ocean::{self},
-    posts, SpoutDoc,
+    }, node::{protocol::node::OceanProtocol, OCEAN_ALPN}, ocean::{self}, posts, SpoutDoc
 };
 
 const SECRET_KEY: &'static str = &"NODE_SECRET_KEY";
@@ -94,12 +90,19 @@ pub async fn launch_iroh(app_db: Db) -> anyhow::Result<()> {
         author.clone(),
     ));
 
-    let router = builder
+    let mut router = builder
         .accept(BLOBS_ALPN, blobs.clone())
         .accept(GOSSIP_ALPN, gossip.clone())
-        .accept(DOCS_ALPN, docs.clone())
-        .spawn()
-        .await?;
+        .accept(DOCS_ALPN, docs.clone());
+
+    #[cfg(feature = "headless")]
+    {
+        let ocean = OceanProtocol::new(app_db.clone(), docs.client().to_owned(), blobs.client().to_owned(), author.clone()).await?;
+        router = router.accept(OCEAN_ALPN, ocean);
+    }
+
+    let router = router.spawn()
+    .await?;
 
     let _ = tokio::task::spawn(ocean::init(
         gossip.clone(),

@@ -13,12 +13,11 @@ use serde::{Deserialize, Serialize};
 use sled::Db;
 use tracing::{info, warn};
 
-use crate::{DocsClient, SpoutDoc};
+use crate::{node::BOOTSTRAP_NODE_PUBKEY, DocsClient, SpoutDoc};
 
 const OCEAN_GOSSIP_TOPIC: &'static str = "social.spout.app.v0.1.0.ocean.gossip";
 const OCEAN_DOC_KEY: &'static str = "social.spout.app.v0.1.0.ocean.doc";
-const BOOTSTRAP_NODE_PUBKEY: &'static str =
-    "603c3ebe7184a72dbb82f7c23eea4aa7f70d45343d21a8d28aaf76380f8dc4fa";
+
 const BOOTSTRAP_OCEAN_DOC_TICKET: &'static str = "docaaavcfbr22fngom4qfavklge7i36xslsnxm37iy62xno5pj73nehbxqbma6d5ptrqsts3o4c67bd52sku73q2rjuhuq2ruukv53dqd4nyt5aci3ior2ha4z2f4xwc4dtgewtcltsmvwgc6jonfzg62bonzsxi53pojvs4lya";
 
 #[derive(Serialize, Deserialize, Debug)]
