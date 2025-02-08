@@ -16,14 +16,17 @@ use tokio::sync::{mpsc::Sender, Mutex};
 use tracing::info;
 
 use crate::{
+    app::enter_ocean,
     app_fs,
     messages::{ProfileSignal, RequestUserProfile, UpdateUserProfile},
     models::{
         self,
         profile::{Controller, Profile},
     },
-    node::{protocol::node::OceanProtocol, OCEAN_ALPN},
-    ocean::{self},
+    node::{
+        protocol::{client::OceanProtocolClient, node::OceanProtocol},
+        OCEAN_ALPN,
+    },
     posts, SpoutDoc,
 };
 
@@ -85,15 +88,22 @@ pub async fn launch_iroh(app_db: Db) -> anyhow::Result<()> {
 
     tracing::info!("AuthorId {:?}", author);
 
-    tracing::info!("build the docs protocol");
-
     #[cfg(not(feature = "headless"))]
-    tokio::spawn(posts::start_actors(
-        app_db.clone(),
-        docs.client().to_owned(),
-        blobs.client().to_owned(),
-        author.clone(),
-    ));
+    {
+        tokio::spawn(posts::start_actors(
+            app_db.clone(),
+            docs.client().to_owned(),
+            blobs.client().to_owned(),
+            author.clone(),
+        ));
+        let _ = tokio::task::spawn(profile_signals(
+            docs.clone(),
+            blobs.clone(),
+            author.clone(),
+            app_db.clone(),
+        ));
+        tokio::task::spawn(enter_ocean(OceanProtocolClient::new(endpoint.clone())));
+    }
 
     let mut router = builder
         .accept(BLOBS_ALPN, blobs.clone())
@@ -113,21 +123,6 @@ pub async fn launch_iroh(app_db: Db) -> anyhow::Result<()> {
     }
 
     let router = router.spawn().await?;
-
-    let _ = tokio::task::spawn(ocean::init(
-        gossip.clone(),
-        docs.client().to_owned(),
-        app_db.clone(),
-        secret_key,
-    ));
-
-    #[cfg(not(feature = "headless"))]
-    let _ = tokio::task::spawn(profile_signals(
-        docs.clone(),
-        blobs.clone(),
-        author.clone(),
-        app_db.clone(),
-    ));
 
     let mut timer = tokio::time::interval(Duration::from_secs(30));
     loop {

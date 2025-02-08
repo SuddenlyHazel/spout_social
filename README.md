@@ -1,51 +1,17 @@
 # [Spout Social](https://github.com/SuddenlyHazel/spout_social)
 
-A new Flutter project.
+> The Alphabet Mafia Social Network
 
-## Using Rust Inside Flutter
+## About
 
-This project leverages Flutter for GUI and Rust for the backend logic,
-utilizing the capabilities of the
-[Rinf](https://pub.dev/packages/rinf) framework.
+Spout Social is a free open source protocol for connecting the Alphabet Mafia 🌈. No VC, no profit interest, no sketchy data usurping. Spout is built to foster genuine connections and community building without the interference of corporate interests. Join us in creating a space where everyone can freely express themselves and support one another. Let's be weird together ❤️.
 
-To run and build this app, you need to have
-[Flutter SDK](https://docs.flutter.dev/get-started/install)
-and [Rust toolchain](https://www.rust-lang.org/tools/install)
-installed on your system.
-You can check that your system is ready with the commands below.
-Note that all the Flutter subcomponents should be installed.
+This repo contains an implementation of a mobile app as well as a headless node users can use to create and host their own oceans.
 
-```bash
-rustc --version
-flutter doctor
-```
+## Guiding Principals
 
-You also need to have the CLI tool for Rinf ready.
-
-```bash
-cargo install rinf
-```
-
-Messages sent between Dart and Rust are implemented using Protobuf.
-If you have newly cloned the project repository
-or made changes to the `.proto` files in the `./messages` directory,
-run the following command:
-
-```bash
-rinf message
-```
-
-Now you can run and build this app just like any other Flutter projects.
-
-```bash
-flutter run
-```
-
-For detailed instructions on writing Rust and Flutter together,
-please refer to Rinf's [documentation](https://rinf.cunarist.com).
-
-Code projects can be opened in xcode using the command line like..
-
-```bash
-open ios/Runner.xcworkspace
-```
+1. Capitalism is antithetical to Community.
+2. People are capable of self-organizing and self-governing.
+3. Rainbow Capitalism is exploitation.
+4. Open Source Software empowers individuals and communities.
+5. No gods, no masters.

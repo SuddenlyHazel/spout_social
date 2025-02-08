@@ -1,5 +1,4 @@
 {
-  "rust-analyzer.files.excludeDirs": [
-    "native/hub/src/messages"
-  ],
+  "rust-analyzer.cargo.features": "all",
+  "rust-analyzer.check.features": "all",
 }

@@ -15,16 +15,18 @@ use tracing_subscriber::fmt::writer::BoxMakeWriter;
 use tracing_subscriber::fmt::writer::MakeWriterExt;
 use tracing_subscriber::FmtSubscriber;
 
+rinf::write_interface!();
+
 mod app_db;
 mod app_fs;
 mod iroh_functions;
 mod messages;
 mod models;
 mod node;
-mod ocean;
+// We dont neeed this for now
+// mod ocean;
 mod posts;
-
-rinf::write_interface!();
+mod app;
 
 pub type DocsClient =
     _DocsClient<FlumeConnector<iroh_docs::rpc::proto::Response, iroh_docs::rpc::proto::Request>>;
