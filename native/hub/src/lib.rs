@@ -22,6 +22,7 @@ mod messages;
 mod models;
 mod ocean;
 mod posts;
+mod node;
 
 rinf::write_interface!();
 

@@ -49,6 +49,8 @@ pub async fn launch_iroh(app_db: Db) -> anyhow::Result<()> {
         secret_key
     };
 
+    tracing::info!("PublicKey {}", secret_key.public());
+
     let endpoint = Endpoint::builder()
         .secret_key(secret_key.clone())
         .discovery_n0()
