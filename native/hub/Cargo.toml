@@ -38,6 +38,11 @@ futures-lite = "2.6.0"
 n0-future = "0.1.2"
 bytes = { version = "1.10.0", features = ["serde"] }
 blake3 = "1.5.5"
+vodozemac = "0.9.0"
+
+[features]
+default = []
+headless = []
 
 # Uncomment below to target the web.
 # tokio_with_wasm = { version = "0.7.2", features = ["rt", "macros"] }
