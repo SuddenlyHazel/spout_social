@@ -1,11 +1,8 @@
 use futures::StreamExt;
-use iroh::{endpoint::Connecting, protocol::ProtocolHandler};
+use iroh::protocol::ProtocolHandler;
 use iroh_docs::DocTicket;
 use n0_future::future::Boxed;
 use serde::{Deserialize, Serialize};
-use sled::Db;
-
-use crate::{BlobsClient, DocsClient, SpoutDoc};
 
 #[derive(Serialize, Deserialize)]
 pub enum OceanMessage {
@@ -25,14 +22,11 @@ pub struct OceanEnvelope {
 
 pub mod client {
     use anyhow::anyhow;
-    use iroh::{endpoint, Endpoint, NodeAddr, PublicKey};
+    use iroh::{Endpoint, NodeAddr, PublicKey};
     use iroh_docs::DocTicket;
     use std::str::FromStr;
 
-    use crate::{
-        node::{BOOTSTRAP_NODE_PUBKEY, OCEAN_ALPN},
-        ocean::OceanMessageEnvelope,
-    };
+    use crate::node::{BOOTSTRAP_NODE_PUBKEY, OCEAN_ALPN};
 
     use super::{OceanEnvelope, RegisterProfileResponse};
 
@@ -51,7 +45,7 @@ pub mod client {
         ) -> anyhow::Result<()> {
             let node_addr = PublicKey::from_str(&BOOTSTRAP_NODE_PUBKEY)?;
             let node_addr = NodeAddr::new(node_addr);
-            let mut conn = self.0.connect(node_addr, OCEAN_ALPN.as_bytes()).await?;
+            let conn = self.0.connect(node_addr, OCEAN_ALPN.as_bytes()).await?;
 
             let sealed = OceanEnvelope {
                 msg: super::OceanMessage::RegisterProfile {

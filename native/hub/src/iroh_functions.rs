@@ -16,10 +16,15 @@ use tokio::sync::{mpsc::Sender, Mutex};
 use tracing::info;
 
 use crate::{
-    app_fs, messages::{ProfileSignal, RequestUserProfile, UpdateUserProfile}, models::{
+    app_fs,
+    messages::{ProfileSignal, RequestUserProfile, UpdateUserProfile},
+    models::{
         self,
         profile::{Controller, Profile},
-    }, node::{protocol::node::OceanProtocol, OCEAN_ALPN}, ocean::{self}, posts, SpoutDoc
+    },
+    node::{protocol::node::OceanProtocol, OCEAN_ALPN},
+    ocean::{self},
+    posts, SpoutDoc,
 };
 
 const SECRET_KEY: &'static str = &"NODE_SECRET_KEY";
@@ -97,12 +102,17 @@ pub async fn launch_iroh(app_db: Db) -> anyhow::Result<()> {
 
     #[cfg(feature = "headless")]
     {
-        let ocean = OceanProtocol::new(app_db.clone(), docs.client().to_owned(), blobs.client().to_owned(), author.clone()).await?;
+        let ocean = OceanProtocol::new(
+            app_db.clone(),
+            docs.client().to_owned(),
+            blobs.client().to_owned(),
+            author.clone(),
+        )
+        .await?;
         router = router.accept(OCEAN_ALPN, ocean);
     }
 
-    let router = router.spawn()
-    .await?;
+    let router = router.spawn().await?;
 
     let _ = tokio::task::spawn(ocean::init(
         gossip.clone(),
