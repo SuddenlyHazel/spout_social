@@ -105,7 +105,7 @@ pub async fn launch_iroh(app_db: Db) -> anyhow::Result<()> {
         gossip.clone(),
         docs.client().to_owned(),
         app_db.clone(),
-        secret_key
+        secret_key,
     ));
 
     #[cfg(not(feature = "headless"))]

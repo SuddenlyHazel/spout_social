@@ -1,15 +1,6 @@
-use core::task;
-use std::collections::{BTreeSet, HashSet};
-
 use futures::StreamExt;
-use iroh::{endpoint::Connecting, protocol::ProtocolHandler, NodeAddr, PublicKey};
-use iroh_blobs::{
-    net_protocol::DownloadMode, rpc::client::blobs::DownloadOptions, util::SetTagOption::Auto,
-    BlobFormat,
-};
-use iroh_docs::{
-    rpc::client::docs::Doc, store::DownloadPolicy::NothingExcept, DocTicket, Entry, NamespaceId,
-};
+use iroh::{endpoint::Connecting, protocol::ProtocolHandler};
+use iroh_docs::{DocTicket, NamespaceId};
 use n0_future::future::Boxed;
 use serde::{Deserialize, Serialize};
 use sled::Db;

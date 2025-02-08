@@ -20,9 +20,9 @@ mod app_fs;
 mod iroh_functions;
 mod messages;
 mod models;
+mod node;
 mod ocean;
 mod posts;
-mod node;
 
 rinf::write_interface!();
 
