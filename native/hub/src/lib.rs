@@ -1,12 +1,17 @@
 //! This `hub` crate is the
 //! entry point of the Rust logic.
 
+use app::ocean::enter_ocean;
+use app::posts;
+use app::profile::profile_signals;
 use app_db::app_db;
 use app_fs::app_data_path;
+use iroh::protocol::Router;
 use iroh_blobs::rpc::client::blobs::Client as _BlobsClient;
 use iroh_docs::rpc::client::docs::Client as _DocsClient;
 
 use iroh_docs::rpc::client::docs::Doc;
+use node::protocol::client::OceanProtocolClient;
 use quic_rpc::transport::flume::FlumeConnector;
 use std::fs::File;
 use tracing::info;
@@ -17,12 +22,12 @@ use tracing_subscriber::FmtSubscriber;
 
 rinf::write_interface!();
 
-mod app_db;
+mod app;
+pub mod app_db;
 mod app_fs;
-mod iroh_functions;
+pub mod iroh_functions;
 mod messages;
 mod models;
-mod app;
 pub mod node;
 
 pub type DocsClient =
@@ -40,7 +45,7 @@ pub async fn main() {
 
     let path = format!("{}-app.log", chrono::Utc::now().timestamp_millis());
     let path = app_dir.join(path);
-    
+
     let file = File::create(&path).expect("Failed to create log file");
 
     let (non_blocking, _guard) = tracing_appender::non_blocking(file);
@@ -56,15 +61,45 @@ pub async fn main() {
     let _ = tracing::subscriber::set_global_default(subscriber);
     info!("path {:?}", path.canonicalize());
 
-    start().await.expect("failed to start backend");
+    let router = start().await.expect("failed to start backend");
+
     // Keep the main function running until Dart shutdown.
     #[cfg(not(feature = "headless"))]
     rinf::dart_shutdown().await;
 }
 
-pub async fn start() -> anyhow::Result<()> {
+async fn start() -> anyhow::Result<Router> {
     let spout_db = app_db().await.expect("Failed to get AppDB");
 
-    tokio::spawn(iroh_functions::launch_iroh(spout_db.clone()));
-    Ok(())
+    let (author, endpoint, router_builder, blobs, docs, gossip) =
+        iroh_functions::iroh_base(spout_db.clone()).await?;
+
+    let posts_handle = posts::start_actors(
+        spout_db.clone(),
+        docs.client().to_owned(),
+        blobs.client().to_owned(),
+        author.clone(),
+    )
+    .await?;
+
+    let profiles_handle = profile_signals(
+        docs.clone(),
+        blobs.clone(),
+        author.clone(),
+        spout_db.clone(),
+    )
+    .await?;
+
+    tokio::task::spawn(enter_ocean(
+        OceanProtocolClient::new(endpoint.clone()),
+        profiles_handle.clone(),
+        posts_handle,
+        spout_db.clone(),
+        docs.client().to_owned(),
+        blobs.client().to_owned(),
+    ));
+
+    let router = router_builder.spawn().await?;
+    
+    Ok(router)
 }

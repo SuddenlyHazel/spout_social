@@ -2,7 +2,7 @@
 use std::{str::FromStr, sync::Arc, time::Duration};
 
 use anyhow::{anyhow, Context};
-use iroh::{endpoint, protocol::Router, Endpoint, NodeAddr, NodeId, RelayMap, RelayUrl, SecretKey};
+use iroh::{endpoint, protocol::{Router, RouterBuilder}, Endpoint, NodeAddr, NodeId, RelayMap, RelayUrl, SecretKey};
 
 use iroh_blobs::{net_protocol::Blobs, store::fs::Store, ALPN as BLOBS_ALPN};
 use iroh_docs::{
@@ -32,11 +32,7 @@ use crate::{
 
 const SECRET_KEY: &'static str = &"NODE_SECRET_KEY";
 
-#[instrument]
-pub async fn launch_iroh(app_db: Db) -> anyhow::Result<()> {
-    // Create an endpoint, it allows creating and accepting
-    // connections in the iroh p2p world
-
+pub async fn iroh_base(app_db: Db) -> anyhow::Result<(AuthorId, Endpoint, RouterBuilder, Blobs<Store>, Docs<Store>, Gossip)> {
     let data_dir = app_fs::app_data_path().await?;
 
     println!("{:?}", data_dir.canonicalize());
@@ -52,8 +48,6 @@ pub async fn launch_iroh(app_db: Db) -> anyhow::Result<()> {
         tracing::info!("perist key flush {:?}", app_db.flush());
         secret_key
     };
-
-    tracing::info!("PublicKey {}", secret_key.public());
 
     let endpoint = Endpoint::builder()
         .secret_key(secret_key.clone())
@@ -86,7 +80,17 @@ pub async fn launch_iroh(app_db: Db) -> anyhow::Result<()> {
         Err(_) => docs.client().authors().create().await?,
     };
 
-    tracing::info!("AuthorId {:?}", author);
+    let mut router = builder
+        .accept(BLOBS_ALPN, blobs.clone())
+        .accept(GOSSIP_ALPN, gossip.clone())
+        .accept(DOCS_ALPN, docs.clone());
+
+    Ok((author, endpoint, router, blobs, docs, gossip))
+
+}
+#[instrument]
+pub async fn launch_iroh(app_db: Db) -> anyhow::Result<()> {
+    let (author, endpoint, mut router, blobs, docs, gossip) = iroh_base(app_db.clone()).await?;
 
     #[cfg(not(feature = "headless"))]
     {
@@ -109,23 +113,6 @@ pub async fn launch_iroh(app_db: Db) -> anyhow::Result<()> {
             docs.client().to_owned(),
             blobs.client().to_owned(),
         ));
-    }
-
-    let mut router = builder
-        .accept(BLOBS_ALPN, blobs.clone())
-        .accept(GOSSIP_ALPN, gossip.clone())
-        .accept(DOCS_ALPN, docs.clone());
-
-    #[cfg(feature = "headless")]
-    {
-        let ocean = OceanProtocol::new(
-            app_db.clone(),
-            docs.client().to_owned(),
-            blobs.client().to_owned(),
-            author.clone(),
-        )
-        .await?;
-        router = router.accept(OCEAN_ALPN, ocean);
     }
 
     let router = router.spawn().await?;
