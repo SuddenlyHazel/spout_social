@@ -66,7 +66,7 @@ pub mod profiles {
     use crate::{models::profile::Profile, node::DOWNLOADED_PROFILES_TREE};
 
     use iroh_docs::{
-        engine::LiveEvent::{self, ContentReady, InsertRemote},
+        engine::LiveEvent::{self},
         AuthorId, NamespaceId,
     };
     use tracing::{info, instrument, warn};

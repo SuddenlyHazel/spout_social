@@ -100,6 +100,6 @@ async fn start() -> anyhow::Result<Router> {
     ));
 
     let router = router_builder.spawn().await?;
-    
+
     Ok(router)
 }

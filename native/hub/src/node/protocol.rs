@@ -1,5 +1,7 @@
 use std::fmt::Display;
 
+use crate::{node::OCEAN_APP_DB_KEY, DocsClient, SpoutDoc};
+use anyhow::anyhow;
 use futures::StreamExt;
 use iroh::protocol::ProtocolHandler;
 use iroh_docs::{DocTicket, NamespaceId};
@@ -7,13 +9,11 @@ use n0_future::future::Boxed;
 use serde::{Deserialize, Serialize};
 use sled::Db;
 use tracing::info;
-use anyhow::anyhow;
-use crate::{node::OCEAN_APP_DB_KEY, DocsClient, SpoutDoc};
 
 use super::OCEAN_PROFILE_KEY_BASE;
 
-pub mod node;
 pub mod client;
+pub mod node;
 mod watchers;
 
 #[derive(Serialize, Deserialize)]

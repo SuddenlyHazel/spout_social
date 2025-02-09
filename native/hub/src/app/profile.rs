@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Context};
 use iroh::{NodeAddr, NodeId};
 
 use iroh_blobs::{net_protocol::Blobs, store::fs::Store};
@@ -11,10 +11,7 @@ use iroh_docs::{
 };
 use rinf::debug_print;
 use sled::Db;
-use tokio::{
-    sync::{mpsc::Sender, watch, Mutex},
-    task::JoinHandle,
-};
+use tokio::sync::{mpsc::Sender, Mutex};
 
 use crate::{
     messages::{ProfileSignal, RequestUserProfile, UpdateUserProfile},
@@ -22,7 +19,7 @@ use crate::{
         self,
         profile::{Controller, Profile},
     },
-    BlobsClient, DocsClient, SpoutDoc,
+    SpoutDoc,
 };
 
 const PROFILE_DOC_KEY: &'static str = &"PROFILE_DOC_KEY";

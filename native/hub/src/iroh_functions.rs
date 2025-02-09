@@ -2,7 +2,11 @@
 use std::{str::FromStr, sync::Arc, time::Duration};
 
 use anyhow::{anyhow, Context};
-use iroh::{endpoint, protocol::{Router, RouterBuilder}, Endpoint, NodeAddr, NodeId, RelayMap, RelayUrl, SecretKey};
+use iroh::{
+    endpoint,
+    protocol::{Router, RouterBuilder},
+    Endpoint, NodeAddr, NodeId, RelayMap, RelayUrl, SecretKey,
+};
 
 use iroh_blobs::{net_protocol::Blobs, store::fs::Store, ALPN as BLOBS_ALPN};
 use iroh_docs::{
@@ -32,7 +36,16 @@ use crate::{
 
 const SECRET_KEY: &'static str = &"NODE_SECRET_KEY";
 
-pub async fn iroh_base(app_db: Db) -> anyhow::Result<(AuthorId, Endpoint, RouterBuilder, Blobs<Store>, Docs<Store>, Gossip)> {
+pub async fn iroh_base(
+    app_db: Db,
+) -> anyhow::Result<(
+    AuthorId,
+    Endpoint,
+    RouterBuilder,
+    Blobs<Store>,
+    Docs<Store>,
+    Gossip,
+)> {
     let data_dir = app_fs::app_data_path().await?;
 
     println!("{:?}", data_dir.canonicalize());
@@ -86,7 +99,6 @@ pub async fn iroh_base(app_db: Db) -> anyhow::Result<(AuthorId, Endpoint, Router
         .accept(DOCS_ALPN, docs.clone());
 
     Ok((author, endpoint, router, blobs, docs, gossip))
-
 }
 #[instrument]
 pub async fn launch_iroh(app_db: Db) -> anyhow::Result<()> {

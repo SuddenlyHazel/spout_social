@@ -24,7 +24,7 @@ impl SpoutTui {
             tokio::task::yield_now().await;
             self.handle_ui_event();
             if !self.is_running {
-              break;
+                break;
             }
             terminal.draw(|frame| self.draw(frame))?;
         }

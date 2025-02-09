@@ -1,11 +1,7 @@
-use crate::{
-    models::profile::Profile,
-    node::protocol::watchers::{posts::PostsChangeWatcher, profiles::ProfileChangeWatcher},
-};
+use crate::node::protocol::watchers::{posts::PostsChangeWatcher, profiles::ProfileChangeWatcher};
 
 use anyhow::anyhow;
 use iroh_docs::{
-    engine::LiveEvent::{self, ContentReady, InsertRemote},
     rpc::{client::docs::ShareMode, AddrInfoOptions},
     AuthorId, NamespaceId,
 };
