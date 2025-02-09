@@ -413,7 +413,6 @@ pub mod node {
                         continue;
                     };
                 }
-                LiveEvent::PendingContentReady => todo!(),
                 LiveEvent::NeighborUp(peer) => {
                     info!("Peer({peer}) up for Namespace({namespace_id})");
                 }
