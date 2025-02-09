@@ -11,7 +11,7 @@ use crate::{BlobsClient, DocsClient, SpoutDoc};
 
 const PERSON_PLACEHOLDER: &[u8] = include_bytes!("../../../../assets/person.png");
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Profile {
     pub name: String,
     pub handle: String,

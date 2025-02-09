@@ -4,7 +4,14 @@ use std::time::Duration;
 
 use futures::StreamExt;
 use iroh::{NodeAddr, NodeId};
-use iroh_docs::{rpc::client::docs::ShareMode::Read, store::Query, NamespaceId};
+use iroh_docs::{
+    rpc::{
+        client::docs::ShareMode::{self, Read},
+        AddrInfoOptions,
+    },
+    store::Query,
+    DocTicket, NamespaceId,
+};
 use rinf::debug_print;
 use sled::Db;
 
@@ -20,34 +27,50 @@ use chrono::Utc;
 
 static POSTS: &'static str = "USER_POSTS";
 
+pub struct PostsHandle {
+    user_posts: SpoutDoc,
+}
+
+impl PostsHandle {
+    pub async fn user_posts_ticket(&self) -> anyhow::Result<DocTicket> {
+        Ok(self
+            .user_posts
+            .share(ShareMode::Read, AddrInfoOptions::Relay)
+            .await?)
+    }
+}
+
+async fn load_user_posts_doc(app_db: &Db, docs: &DocsClient) -> anyhow::Result<SpoutDoc> {
+    let doc = match app_db.get(POSTS)? {
+        Some(key) => {
+            let namespace_id: NamespaceId =
+                serde_json::from_slice(&key).expect("Failed to deserialize posts namespaceId");
+            docs.open(namespace_id)
+                .await
+                .expect("Failed to open Posts Doc")
+                .expect("Post document wasnt found")
+        }
+        None => {
+            let doc = docs.create().await?;
+            app_db
+                .insert(
+                    POSTS,
+                    serde_json::to_vec(&doc.id()).expect("Failed to serialize documentId"),
+                )
+                .expect("Failed to write posts id to app_db");
+            debug_print!("store posts key flush {:?}", app_db.flush());
+            doc
+        }
+    };
+    Ok(doc)
+}
 pub async fn start_actors(
     app_db: Db,
     docs: DocsClient,
     blobs: BlobsClient,
     author_id: iroh_docs::AuthorId,
-) {
-    let doc = if let Ok(Some(key)) = app_db.get(POSTS) {
-        let namespace_id: NamespaceId =
-            serde_json::from_slice(&key).expect("Failed to deserialize posts namespaceId");
-        docs.open(namespace_id)
-            .await
-            .expect("Failed to open Posts Doc")
-            .expect("Post document wasnt found")
-    } else {
-        let doc = docs
-            .create()
-            .await
-            .expect("Failed to create posts document");
-        app_db
-            .insert(
-                POSTS,
-                serde_json::to_vec(&doc.id()).expect("Failed to serialize documentId"),
-            )
-            .expect("Failed to write posts id to app_db");
-        debug_print!("store posts key flush {:?}", app_db.flush());
-
-        doc
-    };
+) -> anyhow::Result<PostsHandle> {
+    let doc = load_user_posts_doc(&app_db, &docs).await?;
     tokio::task::spawn(posts_create_actor(app_db.clone(), doc.clone(), author_id));
     tokio::task::spawn(posts_query_actor(
         app_db.clone(),
@@ -56,6 +79,7 @@ pub async fn start_actors(
         author_id,
     ));
     tokio::task::spawn(post_actions_actor(app_db.clone(), doc.clone(), author_id));
+    Ok(PostsHandle { user_posts: doc })
 }
 
 async fn posts_query_actor(
@@ -134,7 +158,7 @@ async fn posts_create_actor(
 
         while let Some(_) = recv.recv().await {
             let ticket = doc
-                .share(Read, iroh_docs::rpc::AddrInfoOptions::Id)
+                .share(Read, AddrInfoOptions::Id)
                 .await
                 .expect("Failed to create debug share ticket");
             debug_print!("{}", ticket.to_string());

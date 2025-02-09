@@ -1,8 +1,13 @@
+use std::fmt::{format, Display};
+
+use bytes::Bytes;
 use futures::StreamExt;
 use iroh::protocol::ProtocolHandler;
-use iroh_docs::DocTicket;
+use iroh_docs::{AuthorId, DocTicket, NamespaceId};
 use n0_future::future::Boxed;
 use serde::{Deserialize, Serialize};
+
+use super::OCEAN_PROFILE_KEY_BASE;
 
 #[derive(Serialize, Deserialize)]
 pub enum OceanMessage {
@@ -13,11 +18,28 @@ pub enum OceanMessage {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct RegisterProfileResponse(Result<(), String>);
+pub struct RegisterProfileResponse(Result<DocTicket, String>);
 
 #[derive(Serialize, Deserialize)]
 pub struct OceanEnvelope {
     msg: OceanMessage,
+}
+
+#[derive(Clone)]
+pub struct ProfileKey(String);
+impl ProfileKey {
+    pub fn new(namespace_id: &NamespaceId, handle: &String) -> Self {
+        Self(format!(
+            "{}.{}.{}",
+            OCEAN_PROFILE_KEY_BASE, namespace_id, handle
+        ))
+    }
+}
+
+impl Display for ProfileKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
 }
 
 pub mod client {
@@ -42,7 +64,7 @@ pub mod client {
             &self,
             profile_ticket: DocTicket,
             posts_ticket: DocTicket,
-        ) -> anyhow::Result<()> {
+        ) -> anyhow::Result<DocTicket> {
             let node_addr = PublicKey::from_str(&BOOTSTRAP_NODE_PUBKEY)?;
             let node_addr = NodeAddr::new(node_addr);
             let conn = self.0.connect(node_addr, OCEAN_ALPN.as_bytes()).await?;
@@ -53,17 +75,20 @@ pub mod client {
                     posts_ticket,
                 },
             };
+
             let (mut tx, mut rx) = conn.open_bi().await?;
 
             tx.write_all(&serde_json::to_vec(&sealed)?).await?;
+            tx.finish()?;
 
             let res = rx.read_to_end(1024 * 10).await?;
 
             let res = serde_json::from_slice::<RegisterProfileResponse>(&res)?;
-            if let Err(e) = res.0 {
-                return Err(anyhow!("{e}"));
+
+            match res.0 {
+                Ok(t) => Ok(t),
+                Err(e) => Err(anyhow!("{e}")),
             }
-            Ok(())
         }
     }
 }
@@ -72,8 +97,12 @@ pub mod node {
     use crate::models::profile::Profile;
 
     use anyhow::anyhow;
-    use iroh_docs::{AuthorId, NamespaceId};
-    use tracing::{info, warn};
+    use iroh_docs::{
+        engine::LiveEvent::{self, ContentReady, InsertRemote},
+        rpc::{client::docs::ShareMode, AddrInfoOptions},
+        AuthorId, NamespaceId,
+    };
+    use tracing::{event, info, instrument, warn, Instrument, Level};
 
     use super::super::*;
     use super::*;
@@ -91,6 +120,7 @@ pub mod node {
         author_id: AuthorId,
     }
     impl OceanProtocol {
+        #[instrument]
         pub(crate) async fn new(
             app_db: Db,
             docs_client: DocsClient,
@@ -98,6 +128,24 @@ pub mod node {
             author_id: AuthorId,
         ) -> anyhow::Result<Self> {
             let ocean_doc = get_or_create_ocean_doc(&app_db, &docs_client).await?;
+            tokio::task::spawn(
+                start_profile_watcher_tasks(
+                    app_db.clone(),
+                    docs_client.clone(),
+                    ocean_doc.clone(),
+                    blobs_client.clone(),
+                    author_id.clone(),
+                )
+            );
+            tokio::task::spawn(
+                start_posts_watcher_tasks(
+                    app_db.clone(),
+                    docs_client.clone(),
+                    ocean_doc.clone(),
+                    blobs_client.clone(),
+                    author_id.clone(),
+                )
+            );
             Ok(Self {
                 app_db,
                 ocean_doc,
@@ -147,6 +195,106 @@ pub mod node {
         }
     }
 
+    #[instrument(target="start_posts_watcher_tasks", fields(ocean_doc= %ocean_doc.id()))]
+    async fn start_posts_watcher_tasks(
+        app_db: Db,
+        docs_client: DocsClient,
+        ocean_doc: SpoutDoc,
+        blobs_client: BlobsClient,
+        author_id: AuthorId,
+    ) -> anyhow::Result<()> {
+        let tree = app_db.open_tree(OCEAN_PROFILE_KEY_BASE)?;
+
+        if tree.len() == 0 {
+            warn!("no ocean user post docs have been synced yet");
+        }
+        
+        for next in tree.iter().by_ref() {
+            if let Ok((namespace_id, doc_ticket)) = next {
+                let namespace_id = TryInto::<[u8; 32]>::try_into(namespace_id.as_ref())
+                    .map_err(|_| anyhow!("failed to convert namespace_id to [u8; 32]"));
+
+                let Ok(namespace_id) = namespace_id else {
+                    continue;
+                };
+
+                let namespace_id = NamespaceId::from(namespace_id);
+
+                let Ok(doc_ticket) = serde_json::from_slice::<DocTicket>(&doc_ticket) else {
+                    continue;
+                };
+
+                let Ok(Some(posts_doc)) = docs_client.open(namespace_id.clone()).await else {
+                    continue;
+                };
+
+                let nodes = doc_ticket.nodes;
+
+                info!("starting post_change_watcher(namespace({namespace_id}))");
+                tokio::task::spawn(posts_change_watcher(
+                    namespace_id,
+                    posts_doc.clone(),
+                    blobs_client.clone(),
+                ));
+                info!("post_change_watcher(namespace({}) started", namespace_id);
+
+                let res = posts_doc.start_sync(nodes).await;
+            }
+        }
+        Ok(())
+    }
+
+    #[instrument(target="start_profile_watcher_tasks", fields(ocean_doc= %ocean_doc.id()))]
+    async fn start_profile_watcher_tasks(
+        app_db: Db,
+        docs_client: DocsClient,
+        ocean_doc: SpoutDoc,
+        blobs_client: BlobsClient,
+        author_id: AuthorId,
+    ) -> anyhow::Result<()> {
+        let tree = app_db.open_tree(OCEAN_PROFILE_KEY_BASE)?;
+
+        for next in tree.iter().by_ref() {
+            if let Ok((namespace_id, doc_ticket)) = next {
+                let namespace_id = TryInto::<[u8; 32]>::try_into(namespace_id.as_ref())
+                    .map_err(|_| anyhow!("failed to convert namespace_id to [u8; 32]"));
+
+                let Ok(namespace_id) = namespace_id else {
+                    continue;
+                };
+
+                let namespace_id = NamespaceId::from(namespace_id);
+
+                let Ok(doc_ticket) = serde_json::from_slice::<DocTicket>(&doc_ticket) else {
+                    continue;
+                };
+
+                let Ok(Some(user_doc)) = docs_client.open(namespace_id.clone()).await else {
+                    continue;
+                };
+
+                let nodes = doc_ticket.nodes;
+
+                info!("starting profile_change_watcher(namespace({namespace_id}))");
+                tokio::task::spawn(profile_change_watcher(
+                    namespace_id,
+                    user_doc.clone(),
+                    ocean_doc.clone(),
+                    app_db.clone(),
+                    blobs_client.clone(),
+                    author_id,
+                ));
+                info!(
+                    "starting profile_change_watcher(namespace({}) started",
+                    namespace_id
+                );
+
+                let res = user_doc.start_sync(nodes).await;
+            }
+        }
+        Ok(())
+    }
+
     pub(crate) async fn handle_connection(
         conn: Connecting,
         app_db: Db,
@@ -176,13 +324,11 @@ pub mod node {
             } => {
                 info!("OceanMessage::RegisterProfile from remote({})", peer_id);
 
+                // Store User Profile
+
                 let id = profile_ticket.capability.id();
                 let tree = app_db.open_tree(OCEAN_PROFILE_KEY_BASE)?;
-
                 tree.insert(id.clone(), serde_json::to_vec(&profile_ticket)?)?;
-                // let DocTicket { capability, nodes } = profile_ticket;
-                // TODO import and set a custom download policy
-                // so we're not just blindly importing a bunch of stuff
                 let doc = docs_client.import(profile_ticket).await?;
 
                 let profile_change_watcher_future = profile_change_watcher(
@@ -200,17 +346,87 @@ pub mod node {
                     }
                 });
 
-                // TODO Similarly, we need to subscribe to the users post document..
+                // Store User Posts
+                let id = posts_ticket.capability.id();
+                let tree = app_db.open_tree(OCEAN_POSTS_KEY_BASE)?;
+                tree.insert(id.clone(), serde_json::to_vec(&posts_ticket)?)?;
+                let doc = docs_client.import(posts_ticket).await?;
 
-                let _ = tx
-                    .write_all(&serde_json::to_vec(&RegisterProfileResponse(Ok(())))?)
+                let posts_change_watcher_future = profile_change_watcher(
+                    id,
+                    doc,
+                    ocean_doc.clone(),
+                    app_db.clone(),
+                    blobs_client.clone(),
+                    author_id.clone(),
+                );
+
+                tokio::task::spawn(async move {
+                    if let Err(e) = posts_change_watcher_future.await {
+                        warn!(?e, "posts_change_watcher_future returned")
+                    }
+                });
+
+                // Share back with the user the ocean doc ticket
+                let ocean_doc_ticket = ocean_doc
+                    .share(ShareMode::Read, AddrInfoOptions::RelayAndAddresses)
                     .await?;
+                let _ = tx
+                    .write_all(&serde_json::to_vec(&RegisterProfileResponse(Ok(
+                        ocean_doc_ticket,
+                    )))?)
+                    .await?;
+                tx.finish()?;
+
+                connection.closed().await;
             }
         }
 
         Ok(())
     }
 
+    pub(crate) async fn posts_change_watcher(
+        namespace_id: NamespaceId,
+        user_posts_doc: SpoutDoc,
+        blobs_client: BlobsClient,
+    ) -> anyhow::Result<()> {
+        info!("starting posts_change_watcher namespace({})", namespace_id);
+        let mut sub = user_posts_doc.subscribe().await?;
+        while let Some(Ok(event)) = sub.next().await {
+            match event {
+                LiveEvent::InsertRemote { from, entry, .. } => {
+                    // TODO we should be queuing these download tasks
+                    info!(
+                        "user {from} inserted an entry(size : {}) {}",
+                        entry.content_len(),
+                        String::from_utf8_lossy(entry.id().key())
+                    );
+                }
+                ContentReady { hash } => {
+                    let Ok(mut reader) = blobs_client.read(hash.clone()).await else {
+                        warn!("failed to read synced bytes for hash {hash}");
+                        continue;
+                    };
+
+                    let Ok(bytes) = reader.read_to_bytes().await else {
+                        warn!("reader failed to read bytes for hash {hash}");
+                        continue;
+                    };
+                }
+                LiveEvent::PendingContentReady => todo!(),
+                LiveEvent::NeighborUp(peer) => {
+                    info!("Peer({peer}) up for Namespace({namespace_id})");
+                }
+                LiveEvent::NeighborDown(peer) => {
+                    info!("Peer({peer}) down for Namespace({namespace_id})");
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+
+    #[instrument(target= "profile_change_watcher", fields(namespace_id = %namespace_id))]
     pub(crate) async fn profile_change_watcher(
         namespace_id: NamespaceId,
         user_doc: SpoutDoc,
@@ -227,24 +443,21 @@ pub mod node {
 
         while let Some(Ok(event)) = sub.next().await {
             match event {
-                iroh_docs::engine::LiveEvent::InsertRemote { from, entry, .. } => {
+                LiveEvent::NeighborUp(peer) => {
+                    info!("Peer({peer}) up for Namespace({namespace_id})");
+                }
+                LiveEvent::NeighborDown(peer) => {
+                    info!("Peer({peer}) down for Namespace({namespace_id})");
+                }
+                LiveEvent::InsertRemote { from, entry, .. } => {
                     // TODO we should be queuing these download tasks
                     info!(
                         "user {from} inserted an entry(size : {}) {}",
                         entry.content_len(),
                         String::from_utf8_lossy(entry.id().key())
                     );
-
-                    if entry.content_len() > 1024 * 1024 * 10 {
-                        warn!(
-                            "tisk tisk.. peer tried to sync {} bytes. Yeeting..",
-                            entry.content_len()
-                        );
-                        user_doc.leave().await?;
-                    }
                 }
-
-                iroh_docs::engine::LiveEvent::ContentReady { hash } => {
+                LiveEvent::ContentReady { hash } => {
                     let Ok(mut reader) = blobs_client.read(hash.clone()).await else {
                         warn!("failed to read synced bytes for hash {hash}");
                         continue;
@@ -265,9 +478,9 @@ pub mod node {
                         continue;
                     };
 
-                    let profile_key =
-                        format!("resolved-profile.{}.{}", profile.handle, namespace_id);
-                    match tree.get(&profile_key) {
+                    let profile_key = ProfileKey::new(&namespace_id, &profile.handle);
+
+                    match tree.get(&profile_key.to_string()) {
                         Ok(maybe_existing) => {
                             if maybe_existing.is_some() {
                                 info!("overwriting existing profile({profile_key})");
@@ -276,12 +489,12 @@ pub mod node {
                             }
 
                             if let Err(e) = ocean_doc
-                                .set_bytes(author_id, profile_key.clone(), bytes.to_vec())
+                                .set_bytes(author_id, profile_key.to_string(), bytes.to_vec())
                                 .await
                             {
                                 warn!("failed to insert profile into ocean_doc: {e}");
                             }
-                            if let Err(e) = tree.insert(profile_key, bytes.to_vec()) {
+                            if let Err(e) = tree.insert(profile_key.to_string(), bytes.to_vec()) {
                                 warn!("failed to insert profile into tree: {e}");
                             }
                         }

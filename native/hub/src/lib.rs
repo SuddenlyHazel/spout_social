@@ -22,11 +22,8 @@ mod app_fs;
 mod iroh_functions;
 mod messages;
 mod models;
-mod node;
-// We dont neeed this for now
-// mod ocean;
-mod posts;
 mod app;
+pub mod node;
 
 pub type DocsClient =
     _DocsClient<FlumeConnector<iroh_docs::rpc::proto::Response, iroh_docs::rpc::proto::Request>>;
@@ -38,22 +35,13 @@ pub type SpoutDoc =
 // You can go with any async library, not just `tokio`.
 #[tokio::main(flavor = "current_thread")]
 pub async fn main() {
-    start().await.expect("failed to start backend");
-    // Keep the main function running until Dart shutdown.
-    #[cfg(not(feature = "headless"))]
-    rinf::dart_shutdown().await;
-}
-
-pub async fn start() -> anyhow::Result<()> {
     app_fs::init().await.expect("failed to init app filesystem");
     let app_dir = app_data_path().await.expect("failed to get app path");
 
     let path = format!("{}-app.log", chrono::Utc::now().timestamp_millis());
     let path = app_dir.join(path);
-
-    info!("path {:?}", path.canonicalize());
-
-    let file = File::create(path).expect("Failed to create log file");
+    
+    let file = File::create(&path).expect("Failed to create log file");
 
     let (non_blocking, _guard) = tracing_appender::non_blocking(file);
     let file_writer = BoxMakeWriter::new(non_blocking).and(std::io::stdout);
@@ -66,7 +54,15 @@ pub async fn start() -> anyhow::Result<()> {
         .finish();
 
     let _ = tracing::subscriber::set_global_default(subscriber);
+    info!("path {:?}", path.canonicalize());
 
+    start().await.expect("failed to start backend");
+    // Keep the main function running until Dart shutdown.
+    #[cfg(not(feature = "headless"))]
+    rinf::dart_shutdown().await;
+}
+
+pub async fn start() -> anyhow::Result<()> {
     let spout_db = app_db().await.expect("Failed to get AppDB");
 
     tokio::spawn(iroh_functions::launch_iroh(spout_db.clone()));

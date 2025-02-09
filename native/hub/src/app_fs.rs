@@ -3,6 +3,11 @@ use std::path::PathBuf;
 use directories::ProjectDirs;
 
 pub async fn init() -> anyhow::Result<()> {
+    #[cfg(feature = "headless")]
+    let app_directories =
+        ProjectDirs::from("social", "spout", "node").expect("failed to load project_dirs");
+
+    #[cfg(not(feature = "headless"))]
     let app_directories =
         ProjectDirs::from("social", "spout", "app").expect("failed to load project_dirs");
 
@@ -16,7 +21,13 @@ pub async fn init() -> anyhow::Result<()> {
 }
 
 pub async fn app_data_path() -> anyhow::Result<PathBuf> {
-    let app_directories = ProjectDirs::from("social", "spout", "app").unwrap();
+    #[cfg(feature = "headless")]
+    let app_directories =
+        ProjectDirs::from("social", "spout", "node").expect("failed to load project_dirs");
+
+    #[cfg(not(feature = "headless"))]
+    let app_directories =
+        ProjectDirs::from("social", "spout", "app").expect("failed to load project_dirs");
 
     let data_dir = app_directories.data_dir().to_owned();
     Ok(data_dir)

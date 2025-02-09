@@ -23,4 +23,14 @@ message ProfileSignal {
   bytes profile_image = 5;
 }
 
+// [RUST-SIGNAL]
+message ProfileListResponse {
+  int64 count = 1;
+  repeated ProfileSignal profiles = 2;
+}
 
+// [DART-SIGNAL]
+message ProfileListRequestQuery {
+  uint64 offset = 1;
+  uint64 amount = 2;
+}

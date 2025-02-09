@@ -1,0 +1,14 @@
+syntax = "proto3";
+package search;
+
+
+// [DART-SIGNAL]
+message RequestSearch {
+  enum SearchType {
+    USER = 0;
+    POST = 1;
+  }
+  string query = 1;
+  SearchType search_type = 2;
+}
+
