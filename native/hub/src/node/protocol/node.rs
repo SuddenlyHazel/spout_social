@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::node::protocol::watchers::{posts::PostsChangeWatcher, profiles::ProfileChangeWatcher};
 
 use anyhow::anyhow;
@@ -5,6 +7,7 @@ use iroh_docs::{
     rpc::{client::docs::ShareMode, AddrInfoOptions},
     AuthorId, NamespaceId,
 };
+use tokio::sync::RwLock;
 use tracing::{info, instrument, warn};
 
 use super::super::*;
@@ -14,13 +17,18 @@ use sled::Db;
 
 use iroh::endpoint::Connecting;
 
-#[derive(Debug)]
+pub type PostWatchers = Arc<RwLock<Vec<PostsChangeWatcher>>>;
+pub type ProfileWatchers = Arc<RwLock<Vec<ProfileChangeWatcher>>>;
+
+#[derive(Debug, Clone)]
 pub struct OceanProtocol {
     app_db: Db,
     ocean_doc: SpoutDoc,
     docs_client: DocsClient,
     blobs_client: BlobsClient,
     author_id: AuthorId,
+    pub post_watchers: PostWatchers,
+    pub profile_watchers: ProfileWatchers,
 }
 
 impl OceanProtocol {
@@ -32,32 +40,45 @@ impl OceanProtocol {
         author_id: AuthorId,
     ) -> anyhow::Result<Self> {
         let ocean_doc = get_or_create_ocean_doc(&app_db, &docs_client).await?;
-        tokio::task::spawn(start_profile_watcher_tasks(
-            app_db.clone(),
-            docs_client.clone(),
-            ocean_doc.clone(),
-            blobs_client.clone(),
-            author_id.clone(),
+        let profile_watchers = Arc::new(RwLock::new(
+            start_profile_watcher_tasks(
+                app_db.clone(),
+                docs_client.clone(),
+                ocean_doc.clone(),
+                blobs_client.clone(),
+                author_id.clone(),
+            )
+            .await?,
         ));
-        tokio::task::spawn(start_posts_watcher_tasks(
-            app_db.clone(),
-            docs_client.clone(),
-            ocean_doc.clone(),
-            blobs_client.clone(),
-            author_id.clone(),
+
+        let post_watchers = Arc::new(RwLock::new(
+            start_posts_watcher_tasks(
+                app_db.clone(),
+                docs_client.clone(),
+                ocean_doc.clone(),
+                blobs_client.clone(),
+                author_id.clone(),
+            )
+            .await?,
         ));
+
         Ok(Self {
             app_db,
             ocean_doc,
             docs_client,
             blobs_client,
             author_id,
+            profile_watchers,
+            post_watchers,
         })
     }
 }
 
 impl ProtocolHandler for OceanProtocol {
     fn accept(&self, conn: Connecting) -> Boxed<anyhow::Result<()>> {
+        let post_watchers = self.post_watchers.clone();
+        let profile_watchers = self.profile_watchers.clone();
+
         Box::pin(node::handle_connection(
             conn,
             self.app_db.clone(),
@@ -65,6 +86,8 @@ impl ProtocolHandler for OceanProtocol {
             self.docs_client.clone(),
             self.blobs_client.clone(),
             self.author_id.clone(),
+            post_watchers,
+            profile_watchers,
         ))
     }
 }
@@ -76,8 +99,9 @@ async fn start_posts_watcher_tasks(
     ocean_doc: SpoutDoc,
     blobs_client: BlobsClient,
     author_id: AuthorId,
-) -> anyhow::Result<()> {
-    let tree = app_db.open_tree(OCEAN_PROFILE_KEY_BASE)?;
+) -> anyhow::Result<Vec<PostsChangeWatcher>> {
+    let tree = app_db.open_tree(OCEAN_POSTS_KEY_BASE)?;
+    let mut watchers = vec![];
 
     if tree.len() == 0 {
         warn!("no ocean user post docs have been synced yet");
@@ -105,14 +129,21 @@ async fn start_posts_watcher_tasks(
             let nodes = doc_ticket.nodes;
 
             info!("starting post_change_watcher(namespace({namespace_id}))");
-            let post_change_watcher =
-                PostsChangeWatcher::new(namespace_id, posts_doc.clone(), blobs_client.clone())?;
+            let post_change_watcher = PostsChangeWatcher::new(
+                author_id,
+                namespace_id,
+                posts_doc.clone(),
+                ocean_doc.clone(),
+                blobs_client.clone(),
+            )?;
+
+            watchers.push(post_change_watcher);
             info!("post_change_watcher(namespace({}) started", namespace_id);
 
             let res = posts_doc.start_sync(nodes).await;
         }
     }
-    Ok(())
+    Ok(watchers)
 }
 
 #[instrument(target="start_profile_watcher_tasks", fields(ocean_doc= %ocean_doc.id()))]
@@ -122,8 +153,9 @@ async fn start_profile_watcher_tasks(
     ocean_doc: SpoutDoc,
     blobs_client: BlobsClient,
     author_id: AuthorId,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Vec<ProfileChangeWatcher>> {
     let tree = app_db.open_tree(OCEAN_PROFILE_KEY_BASE)?;
+    let mut watchers = vec![];
 
     for next in tree.iter().by_ref() {
         if let Ok((namespace_id, doc_ticket)) = next {
@@ -145,6 +177,7 @@ async fn start_profile_watcher_tasks(
             };
 
             let nodes = doc_ticket.nodes;
+            let res = user_doc.start_sync(nodes).await;
 
             info!("starting profile_change_watcher(namespace({namespace_id}))");
 
@@ -156,16 +189,14 @@ async fn start_profile_watcher_tasks(
                 blobs_client.clone(),
                 author_id,
             )?;
-
+            watchers.push(profile_change_watcher);
             info!(
                 "starting profile_change_watcher(namespace({}) started",
                 namespace_id
             );
-
-            let res = user_doc.start_sync(nodes).await;
         }
     }
-    Ok(())
+    Ok(watchers)
 }
 
 pub(crate) async fn handle_connection(
@@ -175,6 +206,8 @@ pub(crate) async fn handle_connection(
     docs_client: DocsClient,
     blobs_client: BlobsClient,
     author_id: AuthorId,
+    post_watchers: PostWatchers,
+    profile_watchers: ProfileWatchers,
 ) -> anyhow::Result<()> {
     let connection = conn.await?;
     let peer_id = connection.remote_node_id()?;
@@ -211,7 +244,10 @@ pub(crate) async fn handle_connection(
                 app_db.clone(),
                 blobs_client.clone(),
                 author_id.clone(),
-            );
+            )?;
+
+            let mut locked = profile_watchers.write().await;
+            locked.push(profile_change_watcher);
 
             // Store User Posts
             let id = posts_ticket.capability.id();
@@ -219,7 +255,15 @@ pub(crate) async fn handle_connection(
             tree.insert(id.clone(), serde_json::to_vec(&posts_ticket)?)?;
             let doc = docs_client.import(posts_ticket).await?;
 
-            let posts_change_watcher = PostsChangeWatcher::new(id, doc, blobs_client.clone())?;
+            let posts_change_watcher = PostsChangeWatcher::new(
+                author_id.clone(),
+                id,
+                doc,
+                ocean_doc.clone(),
+                blobs_client.clone(),
+            )?;
+            let mut locked = post_watchers.write().await;
+            locked.push(posts_change_watcher);
 
             // Share back with the user the ocean doc ticket
             let ocean_doc_ticket = ocean_doc

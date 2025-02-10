@@ -1,31 +1,70 @@
 pub mod posts {
+    use std::sync::Arc;
+
+    use chrono::{DateTime, Utc};
     use futures::StreamExt;
-    use iroh_docs::{engine::LiveEvent, NamespaceId};
+    use iroh_docs::{engine::LiveEvent, AuthorId, NamespaceId};
+    use tokio::sync::RwLock;
     use tracing::{info, warn};
 
-    use crate::{BlobsClient, SpoutDoc};
+    use crate::{messages::Post, node::OCEAN_POSTS_KEY_BASE, BlobsClient, SpoutDoc};
 
-    pub struct PostsChangeWatcher {}
+    #[derive(Clone, Debug)]
+    pub enum PostWatcherEvent {
+        WatcherStarted,
+        PeerUp,
+        PeerDown,
+        RecordInserted,
+    }
+
+    #[derive(Debug)]
+    pub struct PostsChangeWatcher {
+        pub namespace_id: Arc<NamespaceId>,
+        pub last_active: Arc<RwLock<Option<DateTime<Utc>>>>,
+        pub rx: tokio::sync::broadcast::Receiver<PostWatcherEvent>,
+    }
 
     impl PostsChangeWatcher {
         pub fn new(
+            ocean_author_id: AuthorId,
             namespace_id: NamespaceId,
             user_posts_doc: SpoutDoc,
+            ocean_doc: SpoutDoc,
             blobs_client: BlobsClient,
         ) -> anyhow::Result<Self> {
+            let last_active: Arc<RwLock<Option<DateTime<Utc>>>> = Default::default();
+
+            let (tx, rx) = tokio::sync::broadcast::channel(100);
+
             tokio::task::spawn(posts_change_watcher(
+                ocean_author_id,
                 namespace_id,
                 user_posts_doc,
+                ocean_doc,
                 blobs_client,
+                last_active.clone(),
+                tx,
             ));
-            Ok(Self {})
+            let namespace_id = Arc::new(namespace_id);
+
+            Ok(Self {
+                namespace_id,
+                last_active,
+                rx,
+            })
         }
     }
+
     async fn posts_change_watcher(
+        ocean_author_id: AuthorId,
         namespace_id: NamespaceId,
         user_posts_doc: SpoutDoc,
+        ocean_doc: SpoutDoc,
         blobs_client: BlobsClient,
+        last_active: Arc<RwLock<Option<DateTime<Utc>>>>,
+        mut tx: tokio::sync::broadcast::Sender<PostWatcherEvent>,
     ) -> anyhow::Result<()> {
+        tx.send(PostWatcherEvent::WatcherStarted)?;
         info!("starting posts_change_watcher namespace({})", namespace_id);
         let mut sub = user_posts_doc.subscribe().await?;
         while let Some(Ok(event)) = sub.next().await {
@@ -37,6 +76,8 @@ pub mod posts {
                         entry.content_len(),
                         String::from_utf8_lossy(entry.id().key())
                     );
+                    last_active.write().await.replace(Utc::now());
+                    tx.send(PostWatcherEvent::RecordInserted)?;
                 }
                 LiveEvent::ContentReady { hash } => {
                     let Ok(mut reader) = blobs_client.read(hash.clone()).await else {
@@ -48,12 +89,21 @@ pub mod posts {
                         warn!("reader failed to read bytes for hash {hash}");
                         continue;
                     };
+
+                    let Ok(post) = serde_json::from_slice::<Post>(&bytes) else {
+                        continue;
+                    };
+                    let key = format!("{}.{}", OCEAN_POSTS_KEY_BASE, Utc::now().timestamp_millis());
+                    let _ = ocean_doc.set_bytes(ocean_author_id, key, bytes).await;
                 }
                 LiveEvent::NeighborUp(peer) => {
                     info!("Peer({peer}) up for Namespace({namespace_id})");
+                    last_active.write().await.replace(Utc::now());
+                    tx.send(PostWatcherEvent::PeerUp)?;
                 }
                 LiveEvent::NeighborDown(peer) => {
                     info!("Peer({peer}) down for Namespace({namespace_id})");
+                    tx.send(PostWatcherEvent::PeerDown)?;
                 }
                 _ => {}
             }
@@ -63,6 +113,8 @@ pub mod posts {
 }
 
 pub mod profiles {
+    use std::sync::Arc;
+
     use crate::{models::profile::Profile, node::DOWNLOADED_PROFILES_TREE};
 
     use iroh_docs::{
@@ -75,7 +127,19 @@ pub mod profiles {
     use crate::{BlobsClient, SpoutDoc};
     use sled::Db;
 
-    pub struct ProfileChangeWatcher {}
+    #[derive(Debug, Clone)]
+    pub enum ProfileWatcherEvent {
+        WatcherStarted,
+        PeerUp,
+        PeerDown,
+        RecordInserted,
+    }
+
+    #[derive(Debug)]
+    pub struct ProfileChangeWatcher {
+        pub namespace_id: Arc<NamespaceId>,
+        pub rx: tokio::sync::broadcast::Receiver<ProfileWatcherEvent>,
+    }
 
     impl ProfileChangeWatcher {
         pub fn start(
@@ -86,6 +150,8 @@ pub mod profiles {
             blobs_client: BlobsClient,
             author_id: AuthorId,
         ) -> anyhow::Result<Self> {
+            let (tx, rx) = tokio::sync::broadcast::channel(100);
+
             tokio::task::spawn(profile_change_watcher(
                 namespace_id,
                 user_doc,
@@ -93,8 +159,10 @@ pub mod profiles {
                 app_db,
                 blobs_client,
                 author_id,
+                tx,
             ));
-            Ok(Self {})
+            let namespace_id = Arc::new(namespace_id);
+            Ok(Self { namespace_id, rx })
         }
     }
 
@@ -106,7 +174,9 @@ pub mod profiles {
         app_db: Db,
         blobs_client: BlobsClient,
         author_id: AuthorId,
+        mut tx: tokio::sync::broadcast::Sender<ProfileWatcherEvent>,
     ) -> anyhow::Result<()> {
+        tx.send(ProfileWatcherEvent::WatcherStarted)?;
         info!(
             "starting profile_change_watcher namespace({})",
             namespace_id
@@ -117,9 +187,11 @@ pub mod profiles {
             match event {
                 LiveEvent::NeighborUp(peer) => {
                     info!("Peer({peer}) up for Namespace({namespace_id})");
+                    tx.send(ProfileWatcherEvent::PeerUp)?;
                 }
                 LiveEvent::NeighborDown(peer) => {
                     info!("Peer({peer}) down for Namespace({namespace_id})");
+                    tx.send(ProfileWatcherEvent::PeerDown)?;
                 }
                 LiveEvent::InsertRemote { from, entry, .. } => {
                     // TODO we should be queuing these download tasks
@@ -128,6 +200,7 @@ pub mod profiles {
                         entry.content_len(),
                         String::from_utf8_lossy(entry.id().key())
                     );
+                    tx.send(ProfileWatcherEvent::RecordInserted)?;
                 }
                 LiveEvent::ContentReady { hash } => {
                     let Ok(mut reader) = blobs_client.read(hash.clone()).await else {

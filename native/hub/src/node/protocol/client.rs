@@ -1,9 +1,14 @@
 use anyhow::anyhow;
 use iroh::{Endpoint, NodeAddr, PublicKey};
 use iroh_docs::DocTicket;
+use sled::Db;
 use std::str::FromStr;
 
-use crate::node::{BOOTSTRAP_NODE_PUBKEY, OCEAN_ALPN};
+use crate::{
+    app::{ocean::enter_ocean, posts::PostsHandle, profile::ProfilesHandle},
+    node::{BOOTSTRAP_NODE_PUBKEY, OCEAN_ALPN},
+    BlobsClient, DocsClient,
+};
 
 use super::{OceanEnvelope, RegisterProfileResponse};
 
@@ -13,6 +18,26 @@ pub struct OceanProtocolClient(Endpoint);
 impl OceanProtocolClient {
     pub fn new(endpoint: Endpoint) -> Self {
         OceanProtocolClient(endpoint)
+    }
+
+    pub async fn enter_ocean(
+        endpoint: Endpoint,
+        profiles_handle: ProfilesHandle,
+        posts_handle: PostsHandle,
+        app_db: Db,
+        docs_client: DocsClient,
+        blobs_client: BlobsClient,
+    ) -> anyhow::Result<Self> {
+        let ocean_client = OceanProtocolClient::new(endpoint);
+        tokio::task::spawn(enter_ocean(
+            ocean_client.clone(),
+            profiles_handle,
+            posts_handle,
+            app_db,
+            docs_client,
+            blobs_client,
+        ));
+        Ok(ocean_client)
     }
 
     pub async fn register_profile(

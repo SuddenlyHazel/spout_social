@@ -61,14 +61,15 @@ pub async fn main() {
     let _ = tracing::subscriber::set_global_default(subscriber);
     info!("path {:?}", path.canonicalize());
 
-    let router = start().await.expect("failed to start backend");
+    // We must hold onto an instance of router
+    let (_router, _ocean_client) = start().await.expect("failed to start backend");
 
     // Keep the main function running until Dart shutdown.
     #[cfg(not(feature = "headless"))]
     rinf::dart_shutdown().await;
 }
 
-async fn start() -> anyhow::Result<Router> {
+async fn start() -> anyhow::Result<(Router, OceanProtocolClient)> {
     let spout_db = app_db().await.expect("Failed to get AppDB");
 
     let (author, endpoint, router_builder, blobs, docs, gossip) =
@@ -90,16 +91,17 @@ async fn start() -> anyhow::Result<Router> {
     )
     .await?;
 
-    tokio::task::spawn(enter_ocean(
-        OceanProtocolClient::new(endpoint.clone()),
-        profiles_handle.clone(),
+    let ocean_client = OceanProtocolClient::enter_ocean(
+        endpoint,
+        profiles_handle,
         posts_handle,
-        spout_db.clone(),
+        spout_db,
         docs.client().to_owned(),
         blobs.client().to_owned(),
-    ));
+    )
+    .await?;
 
     let router = router_builder.spawn().await?;
 
-    Ok(router)
+    Ok((router, ocean_client))
 }
