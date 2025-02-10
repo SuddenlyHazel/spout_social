@@ -1,7 +1,6 @@
 //! This `hub` crate is the
 //! entry point of the Rust logic.
 
-use app::ocean::enter_ocean;
 use app::posts;
 use app::profile::profile_signals;
 use app_db::app_db;

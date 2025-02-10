@@ -62,7 +62,7 @@ pub mod posts {
         ocean_doc: SpoutDoc,
         blobs_client: BlobsClient,
         last_active: Arc<RwLock<Option<DateTime<Utc>>>>,
-        mut tx: tokio::sync::broadcast::Sender<PostWatcherEvent>,
+        tx: tokio::sync::broadcast::Sender<PostWatcherEvent>,
     ) -> anyhow::Result<()> {
         tx.send(PostWatcherEvent::WatcherStarted)?;
         info!("starting posts_change_watcher namespace({})", namespace_id);
@@ -174,7 +174,7 @@ pub mod profiles {
         app_db: Db,
         blobs_client: BlobsClient,
         author_id: AuthorId,
-        mut tx: tokio::sync::broadcast::Sender<ProfileWatcherEvent>,
+        tx: tokio::sync::broadcast::Sender<ProfileWatcherEvent>,
     ) -> anyhow::Result<()> {
         tx.send(ProfileWatcherEvent::WatcherStarted)?;
         info!(
