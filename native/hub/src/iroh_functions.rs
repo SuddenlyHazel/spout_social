@@ -20,7 +20,7 @@ use tokio::sync::{mpsc::Sender, Mutex};
 use tracing::{info, instrument};
 
 use crate::{
-    app::{ocean::enter_ocean, posts, profile::profile_signals},
+    app::{ocean::enter_ocean, posts, profile::profile_actors},
     app_fs,
     messages::{ProfileSignal, RequestUserProfile, UpdateUserProfile},
     models::{
@@ -28,7 +28,7 @@ use crate::{
         profile::{Controller, Profile},
     },
     node::{
-        protocol::{client::OceanProtocolClient, node::OceanProtocol},
+        protocol::{client::OceanProtocolClientBuilder, node::OceanProtocol},
         OCEAN_ALPN,
     },
     SpoutDoc,
@@ -92,7 +92,7 @@ pub async fn iroh_base(
         Ok(author) => author,
         Err(_) => docs.client().authors().create().await?,
     };
-
+    
     let mut router = builder
         .accept(BLOBS_ALPN, blobs.clone())
         .accept(GOSSIP_ALPN, gossip.clone())

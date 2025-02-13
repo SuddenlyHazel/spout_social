@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:spout_social/main.dart';
 import 'package:spout_social/messages/all.dart';
-import 'package:workmanager/workmanager.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -67,17 +65,30 @@ class _SettingsPageState extends State<SettingsPage> {
                 child: Text("Print Profile Ticket")),
             OutlinedButton(
               onPressed: () async {
-                await Workmanager().initialize(
-                    callbackDispatcher, // The top level function, aka callbackDispatcher
-                    isInDebugMode:
-                        true // If enabled it will post a notification whenever the task is running. Handy for debugging tasks
-                    );
-                // await Workmanager().registerOneOffTask("spout-social-sync","social.spout.backgroundSync.BackgroundSyncService");
-                await Workmanager().registerPeriodicTask("spout-social-sync",
-                    "social.spout.backgroundSync.BackgroundSyncService");
+                ListNodes.create().sendSignalToRust();
               },
-              child: Text("Attempt to register background jobs"),
+              child: Text("List Nodes"),
             ),
+            StreamBuilder(
+                stream: CurrentNodes.rustSignalStream,
+                builder: (context, snapshot) {
+                  final rustSignal = snapshot.data;
+                  if (rustSignal == null) {
+                    return Text("Nothing received yet champ");
+                  }
+                  final nodes = rustSignal.message.nodes;
+                  if (nodes.isEmpty) {
+                    return Text("No connected peers");
+                  }
+                  return Expanded(
+                    child: ListView.builder(
+                        itemCount: nodes.length,
+                        itemBuilder: (context, idx) {
+                          final node = nodes[idx];
+                          return ListTile(title: Text(node));
+                        }),
+                  );
+                })
           ],
         ),
       ),

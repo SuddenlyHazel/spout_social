@@ -21,12 +21,14 @@ use crate::{
         CreatePostRequest, LogPostsTicket, OwnerPostAction, Post, PostQueryResponse,
         PostsRequestQuery,
     },
+    node::protocol::client::{OceanProtocolClient, OceanProtocolClientBuilder},
     BlobsClient, DocsClient, SpoutDoc,
 };
 use chrono::Utc;
 
 static POSTS: &'static str = "USER_POSTS";
 
+#[derive(Clone)]
 pub struct PostsHandle {
     user_posts: SpoutDoc,
 }
@@ -37,6 +39,16 @@ impl PostsHandle {
             .user_posts
             .share(ShareMode::Read, AddrInfoOptions::Relay)
             .await?)
+    }
+
+    pub async fn list_peers(&self) -> anyhow::Result<Vec<NodeId>> {
+        let Some(peers) = self.user_posts.get_sync_peers().await? else {
+            return Ok(vec![]);
+        };
+        Ok(peers
+            .iter()
+            .map(|v| NodeId::from_bytes(v).unwrap())
+            .collect::<Vec<_>>())
     }
 }
 
@@ -64,7 +76,9 @@ async fn load_user_posts_doc(app_db: &Db, docs: &DocsClient) -> anyhow::Result<S
     };
     Ok(doc)
 }
+
 pub async fn start_actors(
+    ocean_client: OceanProtocolClient,
     app_db: Db,
     docs: DocsClient,
     blobs: BlobsClient,
@@ -77,6 +91,7 @@ pub async fn start_actors(
         doc.clone(),
         blobs,
         author_id,
+        ocean_client.clone(),
     ));
     tokio::task::spawn(post_actions_actor(app_db.clone(), doc.clone(), author_id));
     Ok(PostsHandle { user_posts: doc })
@@ -87,6 +102,7 @@ async fn posts_query_actor(
     doc: SpoutDoc,
     blobs: BlobsClient,
     author_id: iroh_docs::AuthorId,
+    ocean_client: OceanProtocolClient,
 ) -> anyhow::Result<()> {
     let requests = PostsRequestQuery::get_dart_signal_receiver();
 
@@ -115,6 +131,11 @@ async fn posts_query_actor(
                     doc.del(author_id, id).await;
                 }
             };
+        }
+
+        if let Ok(mut ocean_posts) = ocean_client.request_ocean_posts().await {
+            debug_print!("Ayee we got posts! {}", ocean_posts.len());
+            posts.extend(ocean_posts.into_iter());
         }
 
         PostQueryResponse { posts }.send_signal_to_dart();

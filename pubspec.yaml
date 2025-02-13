@@ -19,6 +19,7 @@ dependencies:
     git:
       url: https://github.com/absar/flutter_workmanager.git
       ref: ios-bg-tasks-enh-final
+  fl_chart: ^0.70.2
 
 dev_dependencies:
   flutter_test:

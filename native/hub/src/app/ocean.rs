@@ -8,9 +8,12 @@ use rinf::debug_print;
 use sled::Db;
 
 use crate::{
-    messages::{ProfileListRequestQuery, ProfileListResponse, ProfileSignal},
+    messages::{Post, ProfileListRequestQuery, ProfileListResponse, ProfileSignal},
     models::profile::Profile,
-    node::{protocol::client::OceanProtocolClient, BOOTSTRAP_NODE_PUBKEY, OCEAN_PROFILE_KEY_BASE},
+    node::{
+        protocol::client::{OceanProtocolClient, ProtocolCommandReceiver},
+        BOOTSTRAP_NODE_PUBKEY, OCEAN_POSTS_KEY_BASE, OCEAN_PROFILE_KEY_BASE,
+    },
     BlobsClient, DocsClient, SpoutDoc,
 };
 
@@ -25,6 +28,7 @@ pub async fn enter_ocean(
     app_db: Db,
     docs_client: DocsClient,
     blobs_client: BlobsClient,
+    rx: ProtocolCommandReceiver,
 ) -> anyhow::Result<()> {
     debug_print!("Entered the ocean task :D");
 
@@ -67,8 +71,8 @@ pub async fn enter_ocean(
         }
     };
 
-    tokio::task::spawn(profile_list_actor(doc.clone(), blobs_client));
-
+    tokio::task::spawn(profile_list_actor(doc.clone(), blobs_client.clone()));
+    tokio::task::spawn(post_list_actor(doc.clone(), blobs_client.clone(), rx));
     Ok(())
 }
 
@@ -86,6 +90,7 @@ async fn profile_list_actor(ocean_doc: SpoutDoc, blobs_client: BlobsClient) -> a
             )
             .await?;
         let mut results = vec![];
+
         while let Some(Ok(profile)) = res.next().await {
             let content_hash = profile.content_hash();
             let Ok(mut reader) = blobs_client.read(content_hash).await else {
@@ -114,6 +119,43 @@ async fn profile_list_actor(ocean_doc: SpoutDoc, blobs_client: BlobsClient) -> a
             profiles: results,
         }
         .send_signal_to_dart();
+    }
+    Ok(())
+}
+
+pub async fn post_list_actor(
+    ocean_doc: SpoutDoc,
+    blobs_client: BlobsClient,
+    mut rx: ProtocolCommandReceiver,
+) -> anyhow::Result<()> {
+    while let Some(command) = rx.recv().await {
+        let Ok(mut posts) = ocean_doc
+            .get_many(Query::key_prefix(OCEAN_POSTS_KEY_BASE))
+            .await
+        else {
+            continue;
+        };
+
+        let mut results = vec![];
+
+        while let Some(Ok(post)) = posts.next().await {
+            let content_hash = post.content_hash();
+            let Ok(mut reader) = blobs_client.read(content_hash).await else {
+                continue;
+            };
+
+            let Ok(bytes) = reader.read_to_bytes().await else {
+                continue;
+            };
+
+            let Ok(post) = serde_json::from_slice::<Post>(&bytes) else {
+                continue;
+            };
+
+            results.push(post);
+        }
+
+        let _ = command.0.send(results);
     }
     Ok(())
 }

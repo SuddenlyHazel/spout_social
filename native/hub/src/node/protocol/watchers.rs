@@ -129,16 +129,36 @@ pub mod profiles {
 
     #[derive(Debug, Clone)]
     pub enum ProfileWatcherEvent {
-        WatcherStarted,
-        PeerUp,
-        PeerDown,
-        RecordInserted,
+        WatcherStarted(NamespaceId),
+        PeerUp(NamespaceId),
+        PeerDown(NamespaceId),
+        RecordInserted(NamespaceId),
     }
 
+    impl ToString for ProfileWatcherEvent {
+        fn to_string(&self) -> String {
+            match self {
+                ProfileWatcherEvent::WatcherStarted(namespace_id) => {
+                    format!("WatcherStarted({})", namespace_id)
+                }
+                ProfileWatcherEvent::PeerUp(namespace_id) => {
+                    format!("PeerUp({})", namespace_id)
+                }
+                ProfileWatcherEvent::PeerDown(namespace_id) => {
+                    format!("PeerDown({})", namespace_id)
+                }
+                ProfileWatcherEvent::RecordInserted(namespace_id) => {
+                    format!("RecordInserted({})", namespace_id)
+                }
+            }
+        }
+    }
+
+    pub type ProfileEventStream = tokio::sync::broadcast::Receiver<ProfileWatcherEvent>;
     #[derive(Debug)]
     pub struct ProfileChangeWatcher {
         pub namespace_id: Arc<NamespaceId>,
-        pub rx: tokio::sync::broadcast::Receiver<ProfileWatcherEvent>,
+        pub rx: ProfileEventStream,
     }
 
     impl ProfileChangeWatcher {
@@ -176,7 +196,7 @@ pub mod profiles {
         author_id: AuthorId,
         tx: tokio::sync::broadcast::Sender<ProfileWatcherEvent>,
     ) -> anyhow::Result<()> {
-        tx.send(ProfileWatcherEvent::WatcherStarted)?;
+        tx.send(ProfileWatcherEvent::WatcherStarted(namespace_id.clone()))?;
         info!(
             "starting profile_change_watcher namespace({})",
             namespace_id
@@ -187,11 +207,11 @@ pub mod profiles {
             match event {
                 LiveEvent::NeighborUp(peer) => {
                     info!("Peer({peer}) up for Namespace({namespace_id})");
-                    tx.send(ProfileWatcherEvent::PeerUp)?;
+                    tx.send(ProfileWatcherEvent::PeerUp(namespace_id.clone()))?;
                 }
                 LiveEvent::NeighborDown(peer) => {
                     info!("Peer({peer}) down for Namespace({namespace_id})");
-                    tx.send(ProfileWatcherEvent::PeerDown)?;
+                    tx.send(ProfileWatcherEvent::PeerDown(namespace_id.clone()))?;
                 }
                 LiveEvent::InsertRemote { from, entry, .. } => {
                     // TODO we should be queuing these download tasks
@@ -200,7 +220,7 @@ pub mod profiles {
                         entry.content_len(),
                         String::from_utf8_lossy(entry.id().key())
                     );
-                    tx.send(ProfileWatcherEvent::RecordInserted)?;
+                    tx.send(ProfileWatcherEvent::RecordInserted(namespace_id.clone()))?;
                 }
                 LiveEvent::ContentReady { hash } => {
                     let Ok(mut reader) = blobs_client.read(hash.clone()).await else {

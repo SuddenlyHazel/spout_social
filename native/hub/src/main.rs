@@ -21,7 +21,7 @@ fn main() {
         .expect("failed to start protocol layer");
 
     let terminal = ratatui::init();
-
+    
     let tui = SpoutTui {
         logger_state: Default::default(),
         profiles_list_state: Default::default(),

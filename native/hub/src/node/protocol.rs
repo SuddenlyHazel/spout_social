@@ -14,7 +14,7 @@ use super::OCEAN_PROFILE_KEY_BASE;
 
 pub mod client;
 pub mod node;
-mod watchers;
+pub mod watchers;
 
 #[derive(Serialize, Deserialize)]
 pub enum OceanMessage {

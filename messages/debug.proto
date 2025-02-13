@@ -8,3 +8,13 @@ message LogProfileTicket {
 // [DART-SIGNAL]
 message LogPostsTicket {
 }
+
+// [RUST-SIGNAL]
+message CurrentNodes {
+  repeated string nodes = 1;
+}
+
+// [DART-SIGNAL]
+message ListNodes {
+
+}

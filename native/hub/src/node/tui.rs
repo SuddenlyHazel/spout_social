@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use crossterm::event::{self, Event, KeyCode};
 use ratatui::{
@@ -8,9 +8,13 @@ use ratatui::{
     widgets::{Block, Borders, List, ListDirection, ListState, Tabs},
     DefaultTerminal, Frame,
 };
+use tokio::sync::RwLock;
 use tui_logger::{TuiLoggerLevelOutput, TuiLoggerSmartWidget, TuiWidgetEvent, TuiWidgetState};
 
-use super::protocol::node::OceanProtocol;
+use super::protocol::{
+    node::{OceanProtocol, PostWatchers, ProfileWatchers},
+    watchers::profiles::{ProfileChangeWatcher, ProfileEventStream, ProfileWatcherEvent},
+};
 
 static TAB_NAMES: &[&str] = &["Logger", "Watched Profiles", "Watched Posts"];
 
@@ -26,18 +30,36 @@ pub struct SpoutTui {
 
 impl SpoutTui {
     pub fn run(mut self, mut terminal: DefaultTerminal) -> anyhow::Result<()> {
+        let mut profile_event_streams = {
+            let locked = self.ocean_protocol.profile_watchers.blocking_read();
+            let res = locked
+                .iter()
+                .map(|v| v.rx.resubscribe())
+                .collect::<Vec<_>>();
+            drop(locked);
+            println!("dropped locked");
+            res
+        };
+        let mut profile_events = vec![];
         loop {
             self.handle_ui_event();
             if !self.is_running {
                 break;
             }
 
-            terminal.draw(|frame| self.draw(frame))?;
+            for stream in profile_event_streams.iter_mut() {
+                match stream.try_recv() {
+                    Ok(event) => profile_events.push(event),
+                    Err(_) => continue,
+                }
+            }
+
+            terminal.draw(|frame| self.draw(frame, &profile_events))?;
         }
         Ok(())
     }
 
-    fn draw(&mut self, frame: &mut Frame) {
+    fn draw(&mut self, frame: &mut Frame, profile_events: &Vec<ProfileWatcherEvent>) {
         let vertical = Layout::vertical([
             Constraint::Length(1),
             Constraint::Length(3),
@@ -73,22 +95,45 @@ impl SpoutTui {
         if self.selected_tab == 0 {
             frame.render_widget(logger, body_area);
         } else if self.selected_tab == 1 {
+            let [left, right] =
+                Layout::vertical(vec![Constraint::Percentage(30), Constraint::Percentage(70)])
+                    .areas(body_area);
+
             let locked = self.ocean_protocol.profile_watchers.blocking_read();
-            let list = locked
+            let profile_list = locked
                 .iter()
                 .map(|v| v.namespace_id.to_string())
                 .collect::<Vec<_>>();
-            let list = List::new(list)
-                .block(Block::bordered().title("List"))
+            let profile_list = List::new(profile_list)
+                .block(Block::bordered().title("Profiles"))
                 .style(Style::new().white())
                 .highlight_style(Style::new().bg(Color::Blue).italic())
                 .highlight_symbol(">>")
                 .repeat_highlight_symbol(true)
                 .direction(ListDirection::TopToBottom);
-            frame.render_stateful_widget(list, body_area, &mut self.profiles_list_state);
+            let profile_event_list = profile_events
+                .iter()
+                .map(|v| v.to_string())
+                .collect::<Vec<_>>();
+
+            let profile_event_list = List::new(profile_event_list)
+                .block(Block::bordered().title("Events"))
+                .style(Style::new().white())
+                .repeat_highlight_symbol(true)
+                .direction(ListDirection::TopToBottom);
+            // let list = List::new()
+            // .block(Block::bordered().title("Events"))
+            // .style(Style::new().white())
+            // .highlight_style(Style::new().bg(Color::Blue).italic())
+            // .highlight_symbol(">>")
+            // .repeat_highlight_symbol(true)
+            // .direction(ListDirection::TopToBottom);
+
+            frame.render_stateful_widget(profile_list, left, &mut self.profiles_list_state);
+            frame.render_widget(profile_event_list, right);
         } else if self.selected_tab == 2 {
             let [left, right] =
-                Layout::horizontal(vec![Constraint::Percentage(50), Constraint::Percentage(50)])
+                Layout::vertical(vec![Constraint::Percentage(30), Constraint::Percentage(70)])
                     .areas(body_area);
 
             let locked = self.ocean_protocol.post_watchers.blocking_read();

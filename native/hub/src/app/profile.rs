@@ -36,9 +36,19 @@ impl ProfilesHandle {
             .share(ShareMode::Read, AddrInfoOptions::Relay)
             .await?)
     }
+
+    pub async fn list_peers(&self) -> anyhow::Result<Vec<NodeId>> {
+        let Some(peers) = self.profile_doc.get_sync_peers().await? else {
+            return Ok(vec![]);
+        };
+        Ok(peers
+            .iter()
+            .map(|v| NodeId::from_bytes(v).unwrap())
+            .collect::<Vec<_>>())
+    }
 }
 
-pub async fn profile_signals(
+pub async fn profile_actors(
     docs: Docs<Store>,
     blobs: Blobs<Store>,
     author: AuthorId,
@@ -184,8 +194,10 @@ async fn profile_update_actor(
             .flatten()
             .map(NodeAddr::new)
             .collect::<Vec<_>>();
-        doc.start_sync(nodes).await;
+        let _ = doc.start_sync(nodes).await;
     }
+    debug_print!("Made it here");
+
     while let Some(update_request) = listener.recv().await {
         let req = update_request.message;
         let mut locked = profile.lock().await;
@@ -200,6 +212,6 @@ async fn profile_update_actor(
             .expect("failed to write document");
         drop(locked);
         println!("Wrote profile updates :3");
-        updated.send(()).await;
+        let _ = updated.send(()).await;
     }
 }

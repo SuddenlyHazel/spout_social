@@ -1,43 +1,36 @@
 use anyhow::anyhow;
-use iroh::{Endpoint, NodeAddr, PublicKey};
+use iroh::{protocol::ProtocolHandler, Endpoint, NodeAddr, PublicKey};
 use iroh_docs::DocTicket;
 use sled::Db;
 use std::str::FromStr;
 
 use crate::{
     app::{ocean::enter_ocean, posts::PostsHandle, profile::ProfilesHandle},
+    messages::Post,
     node::{BOOTSTRAP_NODE_PUBKEY, OCEAN_ALPN},
     BlobsClient, DocsClient,
 };
 
 use super::{OceanEnvelope, RegisterProfileResponse};
 
-#[derive(Clone)]
-pub struct OceanProtocolClient(Endpoint);
+pub struct OceanPostRequest(pub tokio::sync::oneshot::Sender<Vec<Post>>);
+
+pub type CommandMessage = OceanPostRequest;
+pub type ProtocolCommandSender = tokio::sync::mpsc::Sender<CommandMessage>;
+pub type ProtocolCommandReceiver = tokio::sync::mpsc::Receiver<CommandMessage>;
+
+#[derive(Clone, Debug)]
+pub struct OceanProtocolClient {
+    endpoint: Endpoint,
+    tx: ProtocolCommandSender,
+}
 
 impl OceanProtocolClient {
-    pub fn new(endpoint: Endpoint) -> Self {
-        OceanProtocolClient(endpoint)
-    }
+    pub async fn request_ocean_posts(&self) -> anyhow::Result<Vec<Post>> {
+        let (tx, rx) = tokio::sync::oneshot::channel();
 
-    pub async fn enter_ocean(
-        endpoint: Endpoint,
-        profiles_handle: ProfilesHandle,
-        posts_handle: PostsHandle,
-        app_db: Db,
-        docs_client: DocsClient,
-        blobs_client: BlobsClient,
-    ) -> anyhow::Result<Self> {
-        let ocean_client = OceanProtocolClient::new(endpoint);
-        tokio::task::spawn(enter_ocean(
-            ocean_client.clone(),
-            profiles_handle,
-            posts_handle,
-            app_db,
-            docs_client,
-            blobs_client,
-        ));
-        Ok(ocean_client)
+        self.tx.send(OceanPostRequest(tx)).await?;
+        Ok(rx.await?)
     }
 
     pub async fn register_profile(
@@ -47,7 +40,10 @@ impl OceanProtocolClient {
     ) -> anyhow::Result<DocTicket> {
         let node_addr = PublicKey::from_str(&BOOTSTRAP_NODE_PUBKEY)?;
         let node_addr = NodeAddr::new(node_addr);
-        let conn = self.0.connect(node_addr, OCEAN_ALPN.as_bytes()).await?;
+        let conn = self
+            .endpoint
+            .connect(node_addr, OCEAN_ALPN.as_bytes())
+            .await?;
 
         let sealed = OceanEnvelope {
             msg: super::OceanMessage::RegisterProfile {
@@ -69,5 +65,56 @@ impl OceanProtocolClient {
             Ok(t) => Ok(t),
             Err(e) => Err(anyhow!("{e}")),
         }
+    }
+}
+
+impl ProtocolHandler for OceanProtocolClient {
+    fn accept(
+        &self,
+        conn: iroh::endpoint::Connecting,
+    ) -> n0_future::future::Boxed<anyhow::Result<()>> {
+        Box::pin(async { Ok(()) })
+    }
+}
+
+pub struct OceanProtocolClientBuilder {
+    endpoint: Endpoint,
+    tx: ProtocolCommandSender,
+    rx: ProtocolCommandReceiver,
+}
+
+impl OceanProtocolClientBuilder {
+    pub fn new(endpoint: Endpoint) -> Self {
+        let (tx, rx) = tokio::sync::mpsc::channel(100);
+        OceanProtocolClientBuilder { endpoint, tx, rx }
+    }
+
+    pub fn client(&self) -> OceanProtocolClient {
+        OceanProtocolClient {
+            endpoint: self.endpoint.clone(),
+            tx: self.tx.clone(),
+        }
+    }
+
+    pub async fn enter_ocean(
+        self,
+        profiles_handle: ProfilesHandle,
+        posts_handle: PostsHandle,
+        app_db: Db,
+        docs_client: DocsClient,
+        blobs_client: BlobsClient,
+    ) -> anyhow::Result<()> {
+        let client = self.client();
+        let rx = self.rx;
+        tokio::task::spawn(enter_ocean(
+            client,
+            profiles_handle,
+            posts_handle,
+            app_db,
+            docs_client,
+            blobs_client,
+            rx,
+        ));
+        Ok(())
     }
 }
