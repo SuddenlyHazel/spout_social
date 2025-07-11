@@ -4253,6 +4253,7 @@ dependencies = [
  "chrono",
  "ed25519-dalek",
  "serde",
+ "thiserror 2.0.12",
  "uuid",
  "x25519-dalek",
  "zeroize",
