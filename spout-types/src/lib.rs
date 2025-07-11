@@ -14,9 +14,13 @@
 
 // Re-export commonly used types for convenience
 pub use common::{Id, Timestamp, Uri, base64url_id, id_hint};
+//pub use community;
+//pub use content;
 
 // Module declarations
 pub mod common;
+pub mod community;
+pub mod content;
 
 // Error handling
 pub mod error;
