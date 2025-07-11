@@ -4,3 +4,13 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+base64 = "0.22.1"
+chrono = { version = "0.4.41", features = ["serde"] }
+ed25519-dalek = { version = "2.2.0", features = ["serde"] }
+serde = { version = "1.0.219", optional = true }
+uuid = { version = "1.17.0", features = ["v4"] }
+x25519-dalek = { version = "2.0.1", features = ["serde"] }
+zeroize = { version = "1.8.1", features = ["serde"] }
+
+[features]
+serde = ["dep:serde"]
