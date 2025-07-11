@@ -1,0 +1,21 @@
+[workspace]
+resolver = "3"
+members = ["spout-types", "spout-core", "ui", "web", "desktop", "mobile"]
+
+[workspace.dependencies]
+dioxus = { version = "0.6.0" }
+
+# workspace
+ui = { path = "ui" }
+
+[profile]
+
+[profile.wasm-dev]
+inherits = "dev"
+opt-level = 1
+
+[profile.server-dev]
+inherits = "dev"
+
+[profile.android-dev]
+inherits = "dev"
