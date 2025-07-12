@@ -6,18 +6,21 @@
 //! # Basic Usage
 //!
 //! ```rust
-//! use api_types::{DeviceId, AccountId, Post, Community};
+//! use spout_types::{Handle, Profile, base64url_id};
 //!
-//! let device_id = DeviceId::new();
-//! let account_id = AccountId::new();
+//! let profile = Profile::new("Alice".to_string());
+//! let handle = Handle::new(profile);
+//! let id = base64url_id();
 //! ```
 
 // Re-export commonly used types for convenience
+pub use actor::{Handle, HandleError, HandleId};
 pub use common::{Id, Timestamp, Uri, base64url_id, id_hint};
+pub use content::Profile;
 //pub use community;
-//pub use content;
 
 // Module declarations
+pub mod actor;
 pub mod common;
 pub mod community;
 pub mod content;

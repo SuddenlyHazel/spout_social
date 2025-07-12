@@ -7,6 +7,7 @@ edition = "2024"
 base64 = "0.22.1"
 chrono = { version = "0.4.41", features = ["serde"] }
 ed25519-dalek = { version = "2.2.0", features = ["serde"] }
+rand = "0.9.1"
 serde = { version = "1.0.219" }
 thiserror = "2.0.12"
 uuid = { version = "1.17.0", features = ["v4"] }
