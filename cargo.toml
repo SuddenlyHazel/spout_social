@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["spout-types", "spout-core", "ui", "web", "desktop", "mobile", "spout-util"]
+members = ["spout-types", "spout-core", "ui", "web", "desktop", "mobile", "spout-util", "spout-app-sim"]
 
 [workspace.dependencies]
 dioxus = { version = "0.6.0" }

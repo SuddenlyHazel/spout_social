@@ -4249,6 +4249,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "spout-app-sim"
+version = "0.1.0"
+
+[[package]]
 name = "spout-core"
 version = "0.1.0"
 dependencies = [
