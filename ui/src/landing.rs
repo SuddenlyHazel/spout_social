@@ -1,7 +1,8 @@
-use crate::{CreateHandle, GenerateKey, ImportHandle, MainView};
+use crate::{
+    CreateHandle, GenerateKey, ImportHandle, MainView, OnboardingActions, OnboardingButton,
+    OnboardingHeader, OnboardingLayout, OnboardingSection,
+};
 use dioxus::prelude::*;
-
-const LANDING_CSS: Asset = asset!("/assets/styling/landing.css");
 
 #[component]
 pub fn Landing() -> Element {
@@ -30,14 +31,14 @@ pub fn Landing() -> Element {
         "generate-key" => {
             if let Some((name, handle, image_file, bio)) = profile_data() {
                 rsx! {
-                                                                                    GenerateKey {
-                                                                                        name: name,
-                                                                                        handle: handle.clone(),
-                                                                                        image_file: image_file,
-                                                                                        bio: bio,
-                                                                                        handle_id: handle, // Use the handle from form
-                                                                                        key_value: "spout_key_abc123def456...".to_string(), // TODO: Get from app-sim
-                                                                                        fingerprint: r#"╭─────────────────────╮
+                                                                                                                                                    GenerateKey {
+                                                                                                                                                        name: name,
+                                                                                                                                                        handle: handle.clone(),
+                                                                                                                                                        image_file: image_file,
+                                                                                                                                                        bio: bio,
+                                                                                                                                                        handle_id: handle, // Use the handle from form
+                                                                                                                                                        key_value: "spout_key_abc123def456...".to_string(), // TODO: Get from app-sim
+                                                                                                                                                        fingerprint: r#"╭─────────────────────╮
 ├ ꠨ ꠩   ◎ █ ◎   ꠩ ꠨ ├
 ├   ┼ ◫ ❖ ✱ ❖ ◫ ┼   ├
 ├ ◠ ▓ █ ◎ █ ◎ █ ▓ ◠ ├
@@ -46,19 +47,19 @@ pub fn Landing() -> Element {
 ├   ┼ ◫ ❖ █ ❖ ◫ ┼   ├
 ├ ꠨ ꠩   ◎ █ ◎   ꠩ ꠨ ├
 ╰─────────────────────╯"#.to_string(), // TODO: Get from app-sim
-                                                                                        is_generating: false, // TODO: Get from app-sim
-                                                                                        on_back: move |_| current_view.set("create"),
-                                                                                        on_regenerate: move |_| {
-                                                                                            // TODO: Call app-sim to regenerate key
-                                                                                            println!("Regenerate key requested");
-                                                                                        },
-                                                                                        on_accept: move |_| {
-                                                                                            // TODO: Call app-sim to accept and save handle
-                                                                                            println!("Handle accepted");
-                                                                                            current_view.set("main");
-                                                                                        },
-                                                                                    }
-                                                                                }
+                                                                                                                                                        is_generating: false, // TODO: Get from app-sim
+                                                                                                                                                        on_back: move |_| current_view.set("create"),
+                                                                                                                                                        on_regenerate: move |_| {
+                                                                                                                                                            // TODO: Call app-sim to regenerate key
+                                                                                                                                                            println!("Regenerate key requested");
+                                                                                                                                                        },
+                                                                                                                                                        on_accept: move |_| {
+                                                                                                                                                            // TODO: Call app-sim to accept and save handle
+                                                                                                                                                            println!("Handle accepted");
+                                                                                                                                                            current_view.set("main");
+                                                                                                                                                        },
+                                                                                                                                                    }
+                                                                                                                                                }
             } else {
                 // Fallback if no profile data
                 rsx! {
@@ -82,43 +83,47 @@ pub fn Landing() -> Element {
             }
         }
         _ => rsx! {
-            document::Link { rel: "stylesheet", href: LANDING_CSS }
+            OnboardingLayout {
+                OnboardingSection {
+                    OnboardingHeader {
+                        title: "Welcome to Spout Social!".to_string(),
+                        subtitle: Some("You're ready to start your social journey. Get started by creating a new handle or importing an existing one.".to_string()),
+                        gradient: Some("linear-gradient(135deg, #3cc4dc, #fb422d)".to_string()),
+                        a {
+                            href: "https://example.com/docs",
+                            style: "
+                                display: inline-block;
+                                color: #3cc4dc;
+                                text-decoration: none;
+                                font-size: 1.1rem;
+                                padding: 8px 16px;
+                                border: 1px solid #3cc4dc;
+                                border-radius: 8px;
+                                transition: all 0.2s ease;
+                                margin-top: 30px;
+                            ",
+                            class: "docs-link-hover",
 
-            div {
-                id: "landing",
-
-                div {
-                    id: "welcome-section",
-                    h1 { "Welcome to Spout Social!" }
-                    p {
-                        class: "subtitle",
-                        "You're ready to start your social journey. Get started by creating a new handle or importing an existing one."
+                            "📖 How does this thing work?"
+                        }
                     }
 
-                    a {
-                        href: "https://example.com/docs",
-                        class: "docs-link",
-                        "📖 How does this thing work?"
-                    }
-                }
+                    OnboardingActions {
+                        OnboardingButton {
+                            variant: "primary".to_string(),
+                            onclick: move |_| {
+                                current_view.set("create");
+                            },
+                            "🆕 Create Handle"
+                        }
 
-                div {
-                    id: "action-buttons",
-
-                    button {
-                        class: "action-btn primary",
-                        onclick: move |_| {
-                            current_view.set("create");
-                        },
-                        "🆕 Create Handle"
-                    }
-
-                    button {
-                        class: "action-btn secondary",
-                        onclick: move |_| {
-                            current_view.set("import");
-                        },
-                        "📥 Import Handle"
+                        OnboardingButton {
+                            variant: "secondary".to_string(),
+                            onclick: move |_| {
+                                current_view.set("import");
+                            },
+                            "📥 Import Handle"
+                        }
                     }
                 }
             }
