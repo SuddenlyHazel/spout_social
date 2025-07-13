@@ -1,26 +1,30 @@
+use crate::components::utils::ClassBuilder;
 use dioxus::prelude::*;
 
 const BASE_CSS: Asset = asset!("/assets/styling/base.css");
+const TOKENS_CSS: Asset = asset!("/assets/styling/tokens.css");
 
 #[component]
 pub fn OnboardingLayout(children: Element) -> Element {
     rsx! {
         document::Link { rel: "stylesheet", href: BASE_CSS }
+        document::Link { rel: "stylesheet", href: TOKENS_CSS }
 
         div {
+            class: "onboarding-layout",
             style: "
                 margin: 0;
-                padding: 40px 20px;
+                padding: var(--space-40) var(--space-20);
                 display: flex;
                 flex-direction: column;
                 justify-content: center;
                 align-items: center;
                 min-height: 100vh;
-                background-color: #0f1116;
-                color: white;
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                font-size: 14px;
-                line-height: 1.4;
+                background-color: var(--color-black);
+                color: var(--color-text-primary);
+                font-family: var(--font-family-sans);
+                font-size: var(--font-size-base);
+                line-height: var(--line-height-normal);
             ",
             {children}
         }
@@ -33,14 +37,19 @@ pub fn OnboardingSection(
     centered: Option<bool>,
     children: Element,
 ) -> Element {
-    let max_width = max_width.unwrap_or_else(|| "600px".to_string());
+    let max_width = max_width.unwrap_or_else(|| "var(--container-sm)".to_string());
     let centered = centered.unwrap_or(true);
+
+    let class = ClassBuilder::new("onboarding-section")
+        .add_if("onboarding-section--centered", centered)
+        .build();
 
     let align_items = if centered { "center" } else { "flex-start" };
     let text_align = if centered { "center" } else { "left" };
 
     rsx! {
         div {
+            class: "{class}",
             style: "
                 width: 100%;
                 max-width: {max_width};
@@ -61,17 +70,18 @@ pub fn OnboardingHeader(
     gradient: Option<String>,
     children: Option<Element>,
 ) -> Element {
-    let gradient =
-        gradient.unwrap_or_else(|| "linear-gradient(135deg, #3cc4dc, #00a8d6)".to_string());
+    let gradient = gradient.unwrap_or_else(|| "var(--gradient-primary)".to_string());
 
     rsx! {
         div {
-            style: "margin-bottom: 40px;",
+            class: "onboarding-header",
+            style: "margin-bottom: var(--space-40);",
             h1 {
+                class: "onboarding-title",
                 style: "
-                    font-size: 2.5rem;
-                    font-weight: 700;
-                    margin: 0 0 10px 0;
+                    font-size: var(--font-size-9xl);
+                    font-weight: var(--font-weight-bold);
+                    margin: 0 0 var(--space-10) 0;
                     text-align: center;
                     background: {gradient};
                     -webkit-background-clip: text;
@@ -82,12 +92,13 @@ pub fn OnboardingHeader(
             }
             if let Some(subtitle_text) = subtitle {
                 p {
+                    class: "onboarding-subtitle",
                     style: "
-                        font-size: 1.1rem;
-                        line-height: 1.6;
-                        color: #b0b0b0;
+                        font-size: var(--font-size-3xl);
+                        line-height: var(--line-height-loose);
+                        color: var(--color-text-muted);
                         text-align: center;
-                        margin: 0 0 30px 0;
+                        margin: 0 0 var(--space-32) 0;
                     ",
                     "{subtitle_text}"
                 }
@@ -104,27 +115,13 @@ pub fn OnboardingActions(children: Element) -> Element {
     rsx! {
         div {
             class: "onboarding-actions",
-            {children}
-        }
-    }
-}
-
-#[component]
-pub fn OnboardingButton(
-    variant: String, // "primary" or "secondary"
-    onclick: EventHandler<MouseEvent>,
-    children: Element,
-) -> Element {
-    let class_name = match variant.as_str() {
-        "primary" => "onboarding-button onboarding-button--primary",
-        "secondary" => "onboarding-button onboarding-button--secondary",
-        _ => "onboarding-button onboarding-button--primary",
-    };
-
-    rsx! {
-        button {
-            class: "{class_name}",
-            onclick: move |evt| onclick.call(evt),
+            style: "
+                display: flex;
+                flex-direction: column;
+                gap: var(--space-12);
+                width: 100%;
+                max-width: 400px;
+            ",
             {children}
         }
     }
@@ -134,16 +131,18 @@ pub fn OnboardingButton(
 pub fn AppLayout(children: Element) -> Element {
     rsx! {
         document::Link { rel: "stylesheet", href: BASE_CSS }
+        document::Link { rel: "stylesheet", href: TOKENS_CSS }
 
         div {
+            class: "app-layout",
             style: "
                 display: flex;
                 flex-direction: column;
                 height: 100vh;
-                background-color: #f8fafc;
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                font-size: 14px;
-                line-height: 1.4;
+                background-color: var(--color-light-bg);
+                font-family: var(--font-family-sans);
+                font-size: var(--font-size-base);
+                line-height: var(--line-height-normal);
             ",
             {children}
         }
