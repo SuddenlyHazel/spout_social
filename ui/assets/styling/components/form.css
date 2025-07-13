@@ -1,0 +1,159 @@
+/* Form Component Styles */
+
+/* Base form container */
+.form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* Form group - wraps label, input, and hint */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* Form labels */
+.form-label {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  font-family: var(--font-family-sans);
+}
+
+.form-label--required::after {
+  content: " *";
+  color: var(--color-secondary-start);
+}
+
+/* Input base styles */
+.form-input,
+.form-textarea {
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-2xl);
+  font-family: var(--font-family-sans);
+  border: 2px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-dark-bg);
+  color: var(--color-text-primary);
+  transition: var(--transition-colors);
+  width: 100%;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary-start);
+  box-shadow: 0 0 0 3px rgba(60, 196, 220, 0.1);
+}
+
+.form-input::placeholder,
+.form-textarea::placeholder {
+  color: var(--color-text-disabled);
+}
+
+/* Textarea specific styles */
+.form-textarea {
+  resize: vertical;
+  min-height: 100px;
+  font-family: inherit;
+}
+
+/* File input specific styles */
+.form-input[type="file"] {
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+}
+
+.form-input[type="file"]::-webkit-file-upload-button {
+  background: var(--gradient-primary);
+  color: var(--color-text-primary);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: var(--space-1) var(--space-3);
+  margin-right: var(--space-3);
+  cursor: pointer;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  font-family: var(--font-family-sans);
+}
+
+.form-input[type="file"]::-webkit-file-upload-button:hover {
+  background: var(--gradient-primary-hover);
+}
+
+/* Form hints/help text */
+.form-hint {
+  font-size: var(--font-size-md);
+  color: var(--color-text-subtle);
+  line-height: var(--line-height-normal);
+  font-family: var(--font-family-sans);
+}
+
+/* Form actions container */
+.form-actions {
+  display: flex;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+/* Input states */
+.form-input:disabled,
+.form-textarea:disabled {
+  background-color: var(--color-border-light);
+  color: var(--color-text-disabled);
+  cursor: not-allowed;
+}
+
+.form-input--error,
+.form-textarea--error {
+  border-color: var(--color-error);
+}
+
+.form-input--error:focus,
+.form-textarea--error:focus {
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+/* Form validation message */
+.form-error {
+  font-size: var(--font-size-md);
+  color: var(--color-error);
+  line-height: var(--line-height-normal);
+  font-family: var(--font-family-sans);
+}
+
+/* Responsive design */
+@media (max-width: 480px) {
+  .form-actions {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 360px) {
+  .form-input,
+  .form-textarea {
+    padding: var(--space-2) var(--space-3);
+  }
+}
+
+/* Dark theme adjustments */
+@media (prefers-color-scheme: dark) {
+  .form-input,
+  .form-textarea {
+    background-color: var(--color-dark-bg);
+    border-color: var(--color-border-light);
+    color: var(--color-text-primary);
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .form-input,
+  .form-textarea {
+    transition: none;
+  }
+}

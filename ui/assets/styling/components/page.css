@@ -1,0 +1,302 @@
+/* Page Layout Component Styles */
+
+/* Base page container */
+.page {
+  margin: 0;
+  padding: var(--space-10) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+}
+
+/* Page variants */
+.page--dark {
+  background-color: var(--color-black);
+  color: var(--color-text-primary);
+}
+
+.page--light {
+  background-color: var(--color-light-bg);
+  color: var(--color-text-dark);
+}
+
+.page--main {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: var(--color-light-bg);
+  padding: 0;
+  justify-content: flex-start;
+  align-items: stretch;
+}
+
+/* Page sections */
+.page-section {
+  width: 100%;
+  max-width: var(--container-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.page-section--wide {
+  max-width: var(--container-md);
+}
+
+.page-section--full {
+  max-width: 100%;
+}
+
+.page-section--centered {
+  text-align: center;
+}
+
+/* Page headers */
+.page-header {
+  margin-bottom: var(--space-12);
+}
+
+.page-header--compact {
+  margin-bottom: var(--space-6);
+}
+
+.page-header h1 {
+  font-size: var(--font-size-9xl);
+  font-weight: var(--font-weight-bold);
+  margin: 0 0 var(--space-2) 0;
+  text-align: center;
+}
+
+.page-header--dark h1 {
+  background: var(--gradient-text-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.page-header--mixed h1 {
+  background: var(--gradient-text-mixed);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.page-header--secondary h1 {
+  background: var(--gradient-secondary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.page-header--large h1 {
+  font-size: var(--font-size-10xl);
+  margin-bottom: var(--space-4);
+}
+
+/* Page subtitles */
+.page-subtitle {
+  font-size: var(--font-size-3xl);
+  line-height: var(--line-height-loose);
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-8) 0;
+  max-width: var(--container-sm);
+}
+
+.page-subtitle--large {
+  font-size: var(--font-size-6xl);
+  margin-bottom: var(--space-6);
+}
+
+.page-subtitle--muted {
+  color: var(--color-text-muted);
+}
+
+/* Page content */
+.page-content {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.page-content--flex {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-4);
+}
+
+/* Page actions */
+.page-actions {
+  display: flex;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: var(--container-sm);
+  margin-top: var(--space-8);
+}
+
+.page-actions--column {
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.page-actions--wide {
+  max-width: var(--container-md);
+}
+
+/* Page info boxes */
+.page-info {
+  background-color: var(--color-dark-bg);
+  border: 1px solid var(--color-border-medium);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-8);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-relaxed);
+}
+
+/* Header bar for main app */
+.page-header-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-4) var(--space-8);
+  background-color: var(--color-white);
+  border-bottom: 1px solid var(--color-gray-200);
+  min-height: var(--touch-target);
+}
+
+/* Main view specific styles */
+.main-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-4) var(--space-8);
+  background-color: var(--color-white);
+  border-bottom: 1px solid var(--color-gray-200);
+  min-height: var(--touch-target);
+}
+
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-4);
+}
+
+/* User info in header */
+.user-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.user-info .display-name {
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-md);
+  color: var(--color-text-dark);
+}
+
+.user-info .handle {
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-500);
+  font-family: var(--font-family-mono);
+}
+
+/* Navigation in header */
+.main-nav {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* Responsive design */
+@media (min-width: 768px) {
+  .page-actions--row-md {
+    flex-direction: row;
+    gap: var(--space-8);
+  }
+
+  .page-actions--row-md .btn {
+    flex: 1;
+  }
+}
+
+@media (max-width: 480px) {
+  .page {
+    padding: var(--space-4) var(--space-3);
+  }
+
+  .page-header h1 {
+    font-size: var(--font-size-8xl);
+  }
+
+  .page-header--large h1 {
+    font-size: var(--font-size-9xl);
+  }
+
+  .page-subtitle {
+    font-size: var(--font-size-3xl);
+  }
+
+  .page-subtitle--large {
+    font-size: var(--font-size-4xl);
+  }
+
+  .main-header {
+    padding: var(--space-3) var(--space-6);
+  }
+
+  .main-content {
+    padding: var(--space-3);
+  }
+
+  .page-actions {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 360px) {
+  .page-actions {
+    gap: var(--space-3);
+  }
+}
+
+/* Dark theme adjustments */
+@media (prefers-color-scheme: dark) {
+  .page--light {
+    background-color: var(--color-gray-900);
+    color: var(--color-text-primary);
+  }
+
+  .main-header {
+    background-color: var(--color-gray-800);
+    border-bottom-color: var(--color-gray-700);
+  }
+
+  .user-info .display-name {
+    color: var(--color-text-primary);
+  }
+
+  .user-info .handle {
+    color: var(--color-gray-400);
+  }
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}
+
+/* Focus indicators for keyboard navigation */
+.page-header-bar:focus-within,
+.main-header:focus-within {
+  outline: 2px solid var(--color-info);
+  outline-offset: 2px;
+}

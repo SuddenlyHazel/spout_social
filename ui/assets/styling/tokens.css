@@ -1,0 +1,168 @@
+/* Design Tokens - Extracted from existing styles */
+
+:root {
+  /* Colors - Base */
+  --color-black: #0f1116;
+  --color-dark-bg: #1a1a1a;
+  --color-darker-bg: #111;
+  --color-white: #ffffff;
+  --color-light-bg: #f8fafc;
+  --color-light-surface: #f1f5f9;
+
+  /* Colors - Grays */
+  --color-gray-100: #f1f5f9;
+  --color-gray-200: #e2e8f0;
+  --color-gray-300: #cbd5e1;
+  --color-gray-400: #94a3b8;
+  --color-gray-500: #64748b;
+  --color-gray-600: #475569;
+  --color-gray-700: #334155;
+  --color-gray-800: #1e293b;
+  --color-gray-900: #0f172a;
+
+  /* Colors - Text */
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #e0e0e0;
+  --color-text-muted: #b0b0b0;
+  --color-text-subtle: #888888;
+  --color-text-disabled: #666666;
+  --color-text-dark: #1e293b;
+
+  /* Colors - Borders */
+  --color-border-light: #333333;
+  --color-border-medium: #555555;
+  --color-border-strong: #e2e8f0;
+
+  /* Colors - Brand */
+  --color-primary-start: #3cc4dc;
+  --color-primary-end: #00a8d6;
+  --color-secondary-start: #fb422d;
+  --color-secondary-end: #e96020;
+
+  /* Colors - Status */
+  --color-success: #10b981;
+  --color-success-hover: #059669;
+  --color-error: #ef4444;
+  --color-warning: #f59e0b;
+  --color-info: #3b82f6;
+  --color-info-hover: #2563eb;
+  --color-purple: #8b5cf6;
+  --color-purple-hover: #7c3aed;
+
+  /* Typography - Font Families */
+  --font-family-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-family-mono: "SF Mono", "Monaco", "Inconsolata", monospace;
+
+  /* Typography - Font Sizes */
+  --font-size-xs: 0.7rem;
+  --font-size-sm: 0.75rem;
+  --font-size-base: 0.8rem;
+  --font-size-md: 0.875rem;
+  --font-size-lg: 0.9rem;
+  --font-size-xl: 0.95rem;
+  --font-size-2xl: 1rem;
+  --font-size-3xl: 1.1rem;
+  --font-size-4xl: 1.125rem;
+  --font-size-5xl: 1.2rem;
+  --font-size-6xl: 1.25rem;
+  --font-size-7xl: 1.5rem;
+  --font-size-8xl: 2rem;
+  --font-size-9xl: 2.5rem;
+  --font-size-10xl: 3rem;
+
+  /* Typography - Font Weights */
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* Typography - Line Heights */
+  --line-height-tight: 1.2;
+  --line-height-snug: 1.3;
+  --line-height-normal: 1.4;
+  --line-height-relaxed: 1.5;
+  --line-height-loose: 1.6;
+
+  /* Spacing */
+  --space-1: 0.125rem;
+  --space-2: 0.25rem;
+  --space-3: 0.375rem;
+  --space-4: 0.5rem;
+  --space-5: 0.625rem;
+  --space-6: 0.75rem;
+  --space-8: 1rem;
+  --space-10: 1.25rem;
+  --space-12: 1.5rem;
+  --space-16: 2rem;
+  --space-20: 2.5rem;
+  --space-24: 3rem;
+  --space-32: 4rem;
+  --space-40: 5rem;
+  --space-48: 6rem;
+
+  /* Border Radius */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-full: 50%;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --shadow-primary: 0 4px 12px rgba(60, 196, 220, 0.3);
+  --shadow-secondary: 0 4px 12px rgba(251, 66, 45, 0.3);
+  --shadow-info: 0 8px 25px rgba(60, 196, 220, 0.3);
+  --shadow-error: 0 8px 25px rgba(251, 66, 45, 0.3);
+
+  /* Transitions */
+  --transition-fast: all 0.15s ease;
+  --transition-normal: all 0.2s ease;
+  --transition-colors: border-color 0.2s ease, box-shadow 0.2s ease;
+  --transition-bg: background-color 0.15s ease;
+
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, var(--color-primary-start), var(--color-primary-end));
+  --gradient-primary-hover: linear-gradient(135deg, var(--color-primary-end), var(--color-primary-start));
+  --gradient-secondary: linear-gradient(135deg, var(--color-secondary-start), var(--color-secondary-end));
+  --gradient-secondary-hover: linear-gradient(135deg, var(--color-secondary-end), var(--color-secondary-start));
+  --gradient-text-primary: linear-gradient(135deg, var(--color-primary-start), var(--color-primary-end));
+  --gradient-text-mixed: linear-gradient(135deg, var(--color-primary-start), var(--color-secondary-start));
+
+  /* Z-index */
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
+
+  /* Breakpoints (for reference in media queries) */
+  --breakpoint-sm: 480px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+
+  /* Container Sizes */
+  --container-sm: 600px;
+  --container-md: 800px;
+  --container-lg: 1200px;
+
+  /* Touch Targets */
+  --touch-target: 44px;
+  --touch-target-sm: 36px;
+  --touch-target-lg: 60px;
+}
+
+/* Dark mode overrides */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-light-bg: var(--color-gray-900);
+    --color-light-surface: var(--color-gray-800);
+    --color-text-dark: var(--color-text-primary);
+    --color-border-strong: var(--color-gray-700);
+  }
+}
