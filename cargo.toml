@@ -3,7 +3,7 @@ resolver = "3"
 members = ["spout-types", "spout-core", "ui", "web", "desktop", "mobile", "spout-util", "spout-app-sim"]
 
 [workspace.dependencies]
-dioxus = { version = "0.6.0" }
+dioxus = { version = "0.7.3" }
 
 # workspace
 ui = { path = "ui" }
