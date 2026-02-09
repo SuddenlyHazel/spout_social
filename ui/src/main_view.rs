@@ -1,48 +1,39 @@
+use crate::{
+    AppLayout, Button, ButtonVariant, Card, CardContent, CardHeader, CardVariant, MainContent,
+    MainHeader,
+};
 use dioxus::prelude::*;
-
-const MAIN_VIEW_CSS: Asset = asset!("/assets/styling/main_view.css");
 
 #[component]
 pub fn MainView(user_handle: String, user_display_name: String) -> Element {
     let mut current_tab = use_signal(|| "feed");
 
     rsx! {
-        document::Link { rel: "stylesheet", href: MAIN_VIEW_CSS }
-
-        div {
-            id: "main-view",
-
-            // Header with user info and navigation
-            header {
-                id: "main-header",
-                div {
-                    class: "user-info",
-                    span { class: "display-name", "{user_display_name}" }
-                    span { class: "handle", "@{user_handle}" }
+        AppLayout {
+            MainHeader {
+                user_handle: user_handle.clone(),
+                user_display_name: user_display_name.clone(),
+                Button {
+                    variant: ButtonVariant::Nav,
+                    active: Some(current_tab() == "feed"),
+                    onclick: move |_| current_tab.set("feed"),
+                    "📰 Feed"
                 }
-                nav {
-                    class: "main-nav",
-                    button {
-                        class: if current_tab() == "feed" { "nav-btn active" } else { "nav-btn" },
-                        onclick: move |_| current_tab.set("feed"),
-                        "📰 Feed"
-                    }
-                    button {
-                        class: if current_tab() == "groups" { "nav-btn active" } else { "nav-btn" },
-                        onclick: move |_| current_tab.set("groups"),
-                        "🏘️ Groups"
-                    }
-                    button {
-                        class: if current_tab() == "dms" { "nav-btn active" } else { "nav-btn" },
-                        onclick: move |_| current_tab.set("dms"),
-                        "💬 DMs"
-                    }
+                Button {
+                    variant: ButtonVariant::Nav,
+                    active: Some(current_tab() == "groups"),
+                    onclick: move |_| current_tab.set("groups"),
+                    "🏘️ Groups"
+                }
+                Button {
+                    variant: ButtonVariant::Nav,
+                    active: Some(current_tab() == "dms"),
+                    onclick: move |_| current_tab.set("dms"),
+                    "💬 DMs"
                 }
             }
 
-            // Main content area
-            main {
-                id: "main-content",
+            MainContent {
                 match current_tab() {
                     "feed" => rsx! { FeedView {} },
                     "groups" => rsx! { GroupsView {} },
@@ -58,63 +49,208 @@ pub fn MainView(user_handle: String, user_display_name: String) -> Element {
 fn FeedView() -> Element {
     rsx! {
         div {
-            class: "feed-container",
+            style: "
+                max-width: 100%;
+                display: flex;
+                flex-direction: column;
+                gap: var(--space-4);
+            ",
 
             div {
-                class: "feed-header",
-                h2 { "Your Feed" }
-                p { class: "feed-subtitle", "Latest posts from all your groups" }
+                style: "
+                    text-align: center;
+                    padding: var(--space-4) var(--space-2);
+                ",
+                h2 {
+                    style: "
+                        font-size: var(--font-size-4xl);
+                        font-weight: var(--font-weight-semibold);
+                        color: var(--color-text-dark);
+                        margin-bottom: var(--space-2);
+                    ",
+                    "Your Feed"
+                }
+                p {
+                    style: "
+                        color: var(--color-gray-600);
+                        font-size: var(--font-size-md);
+                    ",
+                    "Latest posts from all your groups"
+                }
             }
 
             div {
-                class: "posts-list",
+                style: "
+                    display: flex;
+                    flex-direction: column;
+                    gap: var(--space-4);
+                ",
 
-                // Sample posts - these would come from props/state in real app
-                div {
-                    class: "post-card",
-                    div {
-                        class: "post-header",
-                        span { class: "post-author", "@techie_sarah" }
-                        span { class: "post-group", "in #rust-lang" }
-                        span { class: "post-time", "2h ago" }
+                Card {
+                    variant: CardVariant::Post,
+                    interactive: true,
+                    CardHeader {
+                        div {
+                            style: "
+                                display: flex;
+                                gap: var(--space-4);
+                                align-items: center;
+                                font-size: var(--font-size-sm);
+                                width: 100%;
+                            ",
+                            span {
+                                style: "
+                                    font-weight: var(--font-weight-semibold);
+                                    color: var(--color-info);
+                                ",
+                                "@techie_sarah"
+                            }
+                            span {
+                                style: "color: var(--color-gray-500);",
+                                "in #rust-lang"
+                            }
+                            span {
+                                style: "
+                                    color: var(--color-gray-400);
+                                    margin-left: auto;
+                                ",
+                                "2h ago"
+                            }
+                        }
                     }
-                    div {
-                        class: "post-content",
-                        h3 { "New async features in Rust 1.75" }
-                        p { "Just discovered some amazing new async improvements..." }
+                    CardContent {
+                        h3 {
+                            style: "
+                                font-size: var(--font-size-lg);
+                                font-weight: var(--font-weight-semibold);
+                                color: var(--color-text-dark);
+                                margin-bottom: var(--space-2);
+                                line-height: var(--line-height-snug);
+                            ",
+                            "New async features in Rust 1.75"
+                        }
+                        p {
+                            style: "
+                                color: var(--color-gray-600);
+                                font-size: var(--font-size-base);
+                                line-height: var(--line-height-normal);
+                                margin-bottom: var(--space-4);
+                            ",
+                            "Just discovered some amazing new async improvements..."
+                        }
+                        div {
+                            style: "
+                                display: flex;
+                                gap: var(--space-4);
+                                padding-top: var(--space-4);
+                                border-top: 1px solid var(--color-gray-200);
+                            ",
+                            Button {
+                                variant: ButtonVariant::Ghost,
+                                size: crate::ButtonSize::Small,
+                                "👍 12"
+                            }
+                            Button {
+                                variant: ButtonVariant::Ghost,
+                                size: crate::ButtonSize::Small,
+                                "💬 8"
+                            }
+                            Button {
+                                variant: ButtonVariant::Ghost,
+                                size: crate::ButtonSize::Small,
+                                "🔄 3"
+                            }
+                        }
                     }
-                    div {
-                        class: "post-actions",
-                        button { class: "action-btn", "👍 12" }
-                        button { class: "action-btn", "💬 8" }
-                        button { class: "action-btn", "🔄 3" }
+                }
+
+                Card {
+                    variant: CardVariant::Post,
+                    interactive: true,
+                    CardHeader {
+                        div {
+                            style: "
+                                display: flex;
+                                gap: var(--space-4);
+                                align-items: center;
+                                font-size: var(--font-size-sm);
+                                width: 100%;
+                            ",
+                            span {
+                                style: "
+                                    font-weight: var(--font-weight-semibold);
+                                    color: var(--color-info);
+                                ",
+                                "@crypto_dev"
+                            }
+                            span {
+                                style: "color: var(--color-gray-500);",
+                                "in #blockchain"
+                            }
+                            span {
+                                style: "
+                                    color: var(--color-gray-400);
+                                    margin-left: auto;
+                                ",
+                                "4h ago"
+                            }
+                        }
+                    }
+                    CardContent {
+                        h3 {
+                            style: "
+                                font-size: var(--font-size-lg);
+                                font-weight: var(--font-weight-semibold);
+                                color: var(--color-text-dark);
+                                margin-bottom: var(--space-2);
+                                line-height: var(--line-height-snug);
+                            ",
+                            "Building decentralized identity systems"
+                        }
+                        p {
+                            style: "
+                                color: var(--color-gray-600);
+                                font-size: var(--font-size-base);
+                                line-height: var(--line-height-normal);
+                                margin-bottom: var(--space-4);
+                            ",
+                            "Working on a new approach to digital identity..."
+                        }
+                        div {
+                            style: "
+                                display: flex;
+                                gap: var(--space-4);
+                                padding-top: var(--space-4);
+                                border-top: 1px solid var(--color-gray-200);
+                            ",
+                            Button {
+                                variant: ButtonVariant::Ghost,
+                                size: crate::ButtonSize::Small,
+                                "👍 25"
+                            }
+                            Button {
+                                variant: ButtonVariant::Ghost,
+                                size: crate::ButtonSize::Small,
+                                "💬 15"
+                            }
+                            Button {
+                                variant: ButtonVariant::Ghost,
+                                size: crate::ButtonSize::Small,
+                                "🔄 7"
+                            }
+                        }
                     }
                 }
 
                 div {
-                    class: "post-card",
-                    div {
-                        class: "post-header",
-                        span { class: "post-author", "@crypto_dev" }
-                        span { class: "post-group", "in #blockchain" }
-                        span { class: "post-time", "4h ago" }
+                    style: "
+                        text-align: center;
+                        margin-top: var(--space-8);
+                    ",
+                    Button {
+                        variant: ButtonVariant::Info,
+                        "Load More Posts"
                     }
-                    div {
-                        class: "post-content",
-                        h3 { "Building decentralized identity systems" }
-                        p { "Working on a new approach to digital identity..." }
-                    }
-                    div {
-                        class: "post-actions",
-                        button { class: "action-btn", "👍 25" }
-                        button { class: "action-btn", "💬 15" }
-                        button { class: "action-btn", "🔄 7" }
-                    }
-                }
-
-                div {
-                    class: "load-more",
-                    button { class: "load-more-btn", "Load More Posts" }
                 }
             }
         }
@@ -125,76 +261,228 @@ fn FeedView() -> Element {
 fn GroupsView() -> Element {
     rsx! {
         div {
-            class: "groups-container",
+            style: "
+                max-width: 100%;
+                display: flex;
+                flex-direction: column;
+                gap: var(--space-4);
+            ",
 
             div {
-                class: "groups-header",
-                h2 { "Your Groups" }
-                p { class: "groups-subtitle", "Communities you're part of" }
-                button { class: "create-group-btn", "➕ Create Group" }
+                style: "
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: var(--space-4) var(--space-2);
+                    flex-wrap: wrap;
+                    gap: var(--space-4);
+                ",
+                div {
+                    h2 {
+                        style: "
+                            font-size: var(--font-size-4xl);
+                            font-weight: var(--font-weight-semibold);
+                            color: var(--color-text-dark);
+                            margin-bottom: var(--space-2);
+                        ",
+                        "Your Groups"
+                    }
+                    p {
+                        style: "
+                            color: var(--color-gray-600);
+                            font-size: var(--font-size-md);
+                        ",
+                        "Communities you're part of"
+                    }
+                }
+                Button {
+                    variant: ButtonVariant::Success,
+                    size: crate::ButtonSize::Medium,
+                    "➕ Create Group"
+                }
             }
 
             div {
-                class: "groups-list",
+                style: "
+                    display: flex;
+                    flex-direction: column;
+                    gap: var(--space-4);
+                ",
 
-                // Sample groups - these would come from props/state in real app
-                div {
-                    class: "group-card",
-                    div {
-                        class: "group-info",
-                        h3 { class: "group-name", "#rust-lang" }
-                        p { class: "group-description", "Rust programming language discussion" }
+                Card {
+                    variant: CardVariant::Group,
+                    interactive: true,
+                    CardContent {
                         div {
-                            class: "group-stats",
-                            span { "1,234 members" }
-                            span { "•" }
-                            span { "23 online" }
+                            style: "margin-bottom: var(--space-4);",
+                            h3 {
+                                style: "
+                                    font-size: var(--font-size-xl);
+                                    font-weight: var(--font-weight-semibold);
+                                    color: var(--color-text-dark);
+                                    margin-bottom: var(--space-2);
+                                    font-family: var(--font-family-mono);
+                                ",
+                                "#rust-lang"
+                            }
+                            p {
+                                style: "
+                                    color: var(--color-gray-600);
+                                    font-size: var(--font-size-base);
+                                    margin-bottom: var(--space-3);
+                                    line-height: var(--line-height-snug);
+                                ",
+                                "Rust programming language discussion"
+                            }
+                            div {
+                                style: "
+                                    display: flex;
+                                    gap: var(--space-3);
+                                    font-size: var(--font-size-sm);
+                                    color: var(--color-gray-400);
+                                    margin-bottom: var(--space-4);
+                                ",
+                                span { "1,234 members" }
+                                span { "•" }
+                                span { "23 online" }
+                            }
                         }
-                    }
-                    div {
-                        class: "group-actions",
-                        button { class: "group-btn posts-btn", "📝 Posts" }
-                        button { class: "group-btn chat-btn", "💬 Chat" }
+                        div {
+                            style: "
+                                display: flex;
+                                gap: var(--space-4);
+                            ",
+                            Button {
+                                variant: ButtonVariant::Info,
+                                size: crate::ButtonSize::Medium,
+                                flex: Some("1".to_string()),
+                                "📝 Posts"
+                            }
+                            Button {
+                                variant: ButtonVariant::Success,
+                                size: crate::ButtonSize::Medium,
+                                flex: Some("1".to_string()),
+                                "💬 Chat"
+                            }
+                        }
                     }
                 }
 
-                div {
-                    class: "group-card",
-                    div {
-                        class: "group-info",
-                        h3 { class: "group-name", "#blockchain" }
-                        p { class: "group-description", "Blockchain technology and cryptocurrency" }
+                Card {
+                    variant: CardVariant::Group,
+                    interactive: true,
+                    CardContent {
                         div {
-                            class: "group-stats",
-                            span { "856 members" }
-                            span { "•" }
-                            span { "12 online" }
+                            style: "margin-bottom: var(--space-4);",
+                            h3 {
+                                style: "
+                                    font-size: var(--font-size-xl);
+                                    font-weight: var(--font-weight-semibold);
+                                    color: var(--color-text-dark);
+                                    margin-bottom: var(--space-2);
+                                    font-family: var(--font-family-mono);
+                                ",
+                                "#blockchain"
+                            }
+                            p {
+                                style: "
+                                    color: var(--color-gray-600);
+                                    font-size: var(--font-size-base);
+                                    margin-bottom: var(--space-3);
+                                    line-height: var(--line-height-snug);
+                                ",
+                                "Blockchain technology and cryptocurrency"
+                            }
+                            div {
+                                style: "
+                                    display: flex;
+                                    gap: var(--space-3);
+                                    font-size: var(--font-size-sm);
+                                    color: var(--color-gray-400);
+                                    margin-bottom: var(--space-4);
+                                ",
+                                span { "856 members" }
+                                span { "•" }
+                                span { "12 online" }
+                            }
                         }
-                    }
-                    div {
-                        class: "group-actions",
-                        button { class: "group-btn posts-btn", "📝 Posts" }
-                        button { class: "group-btn chat-btn", "💬 Chat" }
+                        div {
+                            style: "
+                                display: flex;
+                                gap: var(--space-4);
+                            ",
+                            Button {
+                                variant: ButtonVariant::Info,
+                                size: crate::ButtonSize::Medium,
+                                flex: Some("1".to_string()),
+                                "📝 Posts"
+                            }
+                            Button {
+                                variant: ButtonVariant::Success,
+                                size: crate::ButtonSize::Medium,
+                                flex: Some("1".to_string()),
+                                "💬 Chat"
+                            }
+                        }
                     }
                 }
 
-                div {
-                    class: "group-card",
-                    div {
-                        class: "group-info",
-                        h3 { class: "group-name", "#web-dev" }
-                        p { class: "group-description", "Web development and modern frameworks" }
+                Card {
+                    variant: CardVariant::Group,
+                    interactive: true,
+                    CardContent {
                         div {
-                            class: "group-stats",
-                            span { "2,103 members" }
-                            span { "•" }
-                            span { "45 online" }
+                            style: "margin-bottom: var(--space-4);",
+                            h3 {
+                                style: "
+                                    font-size: var(--font-size-xl);
+                                    font-weight: var(--font-weight-semibold);
+                                    color: var(--color-text-dark);
+                                    margin-bottom: var(--space-2);
+                                    font-family: var(--font-family-mono);
+                                ",
+                                "#web-dev"
+                            }
+                            p {
+                                style: "
+                                    color: var(--color-gray-600);
+                                    font-size: var(--font-size-base);
+                                    margin-bottom: var(--space-3);
+                                    line-height: var(--line-height-snug);
+                                ",
+                                "Web development and modern frameworks"
+                            }
+                            div {
+                                style: "
+                                    display: flex;
+                                    gap: var(--space-3);
+                                    font-size: var(--font-size-sm);
+                                    color: var(--color-gray-400);
+                                    margin-bottom: var(--space-4);
+                                ",
+                                span { "2,103 members" }
+                                span { "•" }
+                                span { "45 online" }
+                            }
                         }
-                    }
-                    div {
-                        class: "group-actions",
-                        button { class: "group-btn posts-btn", "📝 Posts" }
-                        button { class: "group-btn chat-btn", "💬 Chat" }
+                        div {
+                            style: "
+                                display: flex;
+                                gap: var(--space-4);
+                            ",
+                            Button {
+                                variant: ButtonVariant::Info,
+                                size: crate::ButtonSize::Medium,
+                                flex: Some("1".to_string()),
+                                "📝 Posts"
+                            }
+                            Button {
+                                variant: ButtonVariant::Success,
+                                size: crate::ButtonSize::Medium,
+                                flex: Some("1".to_string()),
+                                "💬 Chat"
+                            }
+                        }
                     }
                 }
             }
@@ -206,91 +494,307 @@ fn GroupsView() -> Element {
 fn DMsView() -> Element {
     rsx! {
         div {
-            class: "dms-container",
+            style: "
+                max-width: 100%;
+                display: flex;
+                flex-direction: column;
+                gap: var(--space-4);
+            ",
 
             div {
-                class: "dms-header",
-                h2 { "Direct Messages" }
-                p { class: "dms-subtitle", "Private conversations" }
-                button { class: "new-dm-btn", "➕ New Message" }
+                style: "
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: var(--space-4) var(--space-2);
+                    flex-wrap: wrap;
+                    gap: var(--space-4);
+                ",
+                div {
+                    h2 {
+                        style: "
+                            font-size: var(--font-size-4xl);
+                            font-weight: var(--font-weight-semibold);
+                            color: var(--color-text-dark);
+                            margin-bottom: var(--space-2);
+                        ",
+                        "Direct Messages"
+                    }
+                    p {
+                        style: "
+                            color: var(--color-gray-600);
+                            font-size: var(--font-size-md);
+                        ",
+                        "Private conversations"
+                    }
+                }
+                Button {
+                    variant: ButtonVariant::Purple,
+                    size: crate::ButtonSize::Medium,
+                    "➕ New Message"
+                }
             }
 
             div {
-                class: "dms-list",
+                style: "
+                    display: flex;
+                    flex-direction: column;
+                    gap: var(--space-2);
+                ",
 
-                // Sample DMs - these would come from props/state in real app
-                div {
-                    class: "dm-card",
+                Card {
+                    variant: CardVariant::Dm,
+                    interactive: true,
                     div {
-                        class: "dm-avatar",
+                        style: "
+                            width: 36px;
+                            height: 36px;
+                            border-radius: var(--radius-full);
+                            background-color: var(--color-gray-100);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-size: var(--font-size-3xl);
+                            flex-shrink: 0;
+                        ",
                         "👤"
                     }
                     div {
-                        class: "dm-info",
+                        style: "
+                            flex: 1;
+                            min-width: 0;
+                        ",
                         div {
-                            class: "dm-header",
-                            span { class: "dm-name", "Sarah Chen" }
-                            span { class: "dm-handle", "@techie_sarah" }
-                            span { class: "dm-time", "5m ago" }
+                            style: "
+                                display: flex;
+                                gap: var(--space-3);
+                                align-items: center;
+                                margin-bottom: var(--space-1);
+                            ",
+                            span {
+                                style: "
+                                    font-weight: var(--font-weight-semibold);
+                                    color: var(--color-text-dark);
+                                    font-size: var(--font-size-md);
+                                ",
+                                "Sarah Chen"
+                            }
+                            span {
+                                style: "
+                                    color: var(--color-gray-500);
+                                    font-size: var(--font-size-sm);
+                                    font-family: var(--font-family-mono);
+                                ",
+                                "@techie_sarah"
+                            }
+                            span {
+                                style: "
+                                    color: var(--color-gray-400);
+                                    font-size: var(--font-size-xs);
+                                    margin-left: auto;
+                                ",
+                                "5m ago"
+                            }
                         }
                         div {
-                            class: "dm-preview",
+                            style: "
+                                color: var(--color-gray-600);
+                                font-size: var(--font-size-base);
+                                white-space: nowrap;
+                                overflow: hidden;
+                                text-overflow: ellipsis;
+                                line-height: var(--line-height-snug);
+                            ",
                             "Thanks for the help with that async issue!"
                         }
                     }
                     div {
-                        class: "dm-status",
-                        span { class: "unread-count", "2" }
+                        style: "
+                            display: flex;
+                            align-items: center;
+                            flex-shrink: 0;
+                        ",
+                        span {
+                            style: "
+                                background-color: var(--color-error);
+                                color: var(--color-white);
+                                border-radius: var(--radius-full);
+                                width: 18px;
+                                height: 18px;
+                                font-size: var(--font-size-xs);
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                font-weight: var(--font-weight-semibold);
+                            ",
+                            "2"
+                        }
                     }
                 }
 
-                div {
-                    class: "dm-card",
+                Card {
+                    variant: CardVariant::Dm,
+                    interactive: true,
                     div {
-                        class: "dm-avatar",
+                        style: "
+                            width: 36px;
+                            height: 36px;
+                            border-radius: var(--radius-full);
+                            background-color: var(--color-gray-100);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-size: var(--font-size-3xl);
+                            flex-shrink: 0;
+                        ",
                         "👤"
                     }
                     div {
-                        class: "dm-info",
+                        style: "
+                            flex: 1;
+                            min-width: 0;
+                        ",
                         div {
-                            class: "dm-header",
-                            span { class: "dm-name", "Alex Rivera" }
-                            span { class: "dm-handle", "@crypto_dev" }
-                            span { class: "dm-time", "2h ago" }
+                            style: "
+                                display: flex;
+                                gap: var(--space-3);
+                                align-items: center;
+                                margin-bottom: var(--space-1);
+                            ",
+                            span {
+                                style: "
+                                    font-weight: var(--font-weight-semibold);
+                                    color: var(--color-text-dark);
+                                    font-size: var(--font-size-md);
+                                ",
+                                "Alex Rivera"
+                            }
+                            span {
+                                style: "
+                                    color: var(--color-gray-500);
+                                    font-size: var(--font-size-sm);
+                                    font-family: var(--font-family-mono);
+                                ",
+                                "@crypto_dev"
+                            }
+                            span {
+                                style: "
+                                    color: var(--color-gray-400);
+                                    font-size: var(--font-size-xs);
+                                    margin-left: auto;
+                                ",
+                                "2h ago"
+                            }
                         }
                         div {
-                            class: "dm-preview",
+                            style: "
+                                color: var(--color-gray-600);
+                                font-size: var(--font-size-base);
+                                white-space: nowrap;
+                                overflow: hidden;
+                                text-overflow: ellipsis;
+                                line-height: var(--line-height-snug);
+                            ",
                             "Are you going to the blockchain meetup?"
                         }
                     }
                     div {
-                        class: "dm-status",
-                        span { class: "read-indicator", "✓" }
+                        style: "
+                            display: flex;
+                            align-items: center;
+                            flex-shrink: 0;
+                        ",
+                        span {
+                            style: "
+                                color: var(--color-success);
+                                font-size: var(--font-size-base);
+                                font-weight: var(--font-weight-semibold);
+                            ",
+                            "✓"
+                        }
                     }
                 }
 
-                div {
-                    class: "dm-card",
+                Card {
+                    variant: CardVariant::Dm,
+                    interactive: true,
                     div {
-                        class: "dm-avatar",
+                        style: "
+                            width: 36px;
+                            height: 36px;
+                            border-radius: var(--radius-full);
+                            background-color: var(--color-gray-100);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-size: var(--font-size-3xl);
+                            flex-shrink: 0;
+                        ",
                         "👤"
                     }
                     div {
-                        class: "dm-info",
+                        style: "
+                            flex: 1;
+                            min-width: 0;
+                        ",
                         div {
-                            class: "dm-header",
-                            span { class: "dm-name", "Jordan Kim" }
-                            span { class: "dm-handle", "@webdev_jordan" }
-                            span { class: "dm-time", "1d ago" }
+                            style: "
+                                display: flex;
+                                gap: var(--space-3);
+                                align-items: center;
+                                margin-bottom: var(--space-1);
+                            ",
+                            span {
+                                style: "
+                                    font-weight: var(--font-weight-semibold);
+                                    color: var(--color-text-dark);
+                                    font-size: var(--font-size-md);
+                                ",
+                                "Jordan Kim"
+                            }
+                            span {
+                                style: "
+                                    color: var(--color-gray-500);
+                                    font-size: var(--font-size-sm);
+                                    font-family: var(--font-family-mono);
+                                ",
+                                "@webdev_jordan"
+                            }
+                            span {
+                                style: "
+                                    color: var(--color-gray-400);
+                                    font-size: var(--font-size-xs);
+                                    margin-left: auto;
+                                ",
+                                "1d ago"
+                            }
                         }
                         div {
-                            class: "dm-preview",
+                            style: "
+                                color: var(--color-gray-600);
+                                font-size: var(--font-size-base);
+                                white-space: nowrap;
+                                overflow: hidden;
+                                text-overflow: ellipsis;
+                                line-height: var(--line-height-snug);
+                            ",
                             "Check out this new React framework I found"
                         }
                     }
                     div {
-                        class: "dm-status",
-                        span { class: "read-indicator", "✓" }
+                        style: "
+                            display: flex;
+                            align-items: center;
+                            flex-shrink: 0;
+                        ",
+                        span {
+                            style: "
+                                color: var(--color-success);
+                                font-size: var(--font-size-base);
+                                font-weight: var(--font-weight-semibold);
+                            ",
+                            "✓"
+                        }
                     }
                 }
             }
